@@ -2,6 +2,7 @@
 import argparse
 import os
 import requests
+import xml.etree.ElementTree as ET
 
 from google import genai
 from google.adk.agents.llm_agent import Agent
@@ -18,44 +19,70 @@ genai.Client(api_key=API_KEY)
 
 
 # Tools
-def get_abstract_from_doi(doi: str) -> str:
+def get_abstract_from_doi(doi: str, email: str = os.environ.get("USER_EMAIL")) -> str:
     """
-    Fetches the abstract for a given DOI using the Crossref API.
+    Retrieves the abstract of a publication from its DOI.
 
     Args:
-        doi: The DOI string (e.g., '10.1016/j.cell.2020.10.015').
+        doi: The Digital Object Identifier (e.g., "10.1038/nature1718043").
+        email: Your email address, required by NCBI's API usage policy. Defaults to the USER_EMAIL
+        environment variable.
 
     Returns:
-        The abstract text as a string, or an informative message if not found.
+        The abstract text as a string, or an error message if retrieval fails.
     """
-    # Crossref API endpoint for a single work (article)
-    url = f"https://api.crossref.org/works/{doi}"
+    BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+
+    # --- 1. ESearch: Convert DOI to PMID (Uses XML) ---
+    esearch_url = (
+        f"{BASE_URL}esearch.fcgi?db=pubmed&term={doi}[doi]&retmode=xml&email={email}"
+    )
 
     try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raises an HTTPError for bad responses (4xx or 5xx)
+        esearch_response = requests.get(esearch_url, timeout=10)
+        esearch_response.raise_for_status()
 
-        data = response.json()
+        # Parse ESearch XML
+        root_esearch = ET.fromstring(esearch_response.content)
+        id_element = root_esearch.find("./IdList/Id")
 
-        # Crossref's JSON response structure
-        message = data.get("message", {})
+        if id_element is None or not id_element.text:
+            return f"Error: No PMID found for DOI: {doi}."
 
-        # The abstract is typically stored under the 'abstract' key
-        abstract = message.get("abstract")
+        pmid = id_element.text
 
-        if abstract:
-            # Abstracts often contain XML tags (e.g., <jats:p>).
-            # We need to strip these out for clean text.
-            import re
+        # --- 2. EFetch: Retrieve Full Record as XML (Per your request) ---
+        efetch_url = f"{BASE_URL}efetch.fcgi?db=pubmed&id={pmid}&retmode=xml&rettype=abstract&email={email}"
 
-            clean_abstract = re.sub(r"<[^>]*>", "", abstract)
-            return clean_abstract.strip()
-        else:
-            return f"Abstract not found for DOI: {doi}. (Data available but abstract field missing.)"
+        efetch_response = requests.get(efetch_url, timeout=10)
+        efetch_response.raise_for_status()
+
+        # --- 3. Parse EFetch XML to extract Abstract Text ---
+        # The PubMed XML structure is hierarchical. Abstract text is typically in
+        # //MedlineCitation/Article/Abstract/AbstractText
+        root_efetch = ET.fromstring(efetch_response.content)
+
+        # Note: The 'AbstractText' tag can be a list of elements (e.g., background, methods, results)
+        abstract_parts = root_efetch.findall(".//AbstractText")
+
+        if not abstract_parts:
+            return f"PMID {pmid} found, but could not locate AbstractText tag in XML."
+
+        # Concatenate multiple parts if present (common for structured abstracts)
+        abstract_text = "\n\n".join(
+            "".join(part.itertext()).strip() for part in abstract_parts
+        )
+
+        # A common issue is a missing <Abstract> tag, in which case the text will be empty.
+        if not abstract_text:
+            return f"PMID {pmid} found, but the abstract text was empty after parsing."
+
+        return abstract_text
 
     except requests.exceptions.RequestException as e:
-        # Handles connection issues, timeouts, or bad HTTP status codes
-        return f"Error fetching data for DOI {doi}: {e}"
+        return f"Network or API Error: {e}"
+    except ET.ParseError as e:
+        return f"Parsing Error: Failed to parse XML response. {e}"
 
 
 agent = Agent(
@@ -93,13 +120,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--in_articles_tsv",
         type=str,
-        required=True,
+        # required=True,
         help="The path to the input TSV file containing the articles to screen.",
     )
     parser.add_argument(
         "--out_articles_tsv",
         type=str,
-        required=True,
+        # required=True,
         help="The path to the output TSV file to store the screened articles.",
     )
 

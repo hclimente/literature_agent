@@ -21,6 +21,7 @@ process SCREEN_ARTICLES {
 
     container 'community.wave.seqera.io/library/pip_google-adk:581ba88bd7868075'
     secret 'GOOGLE_API_KEY'
+    secret 'USER_EMAIL'
 
     input:
     path articles_tsv

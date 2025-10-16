@@ -12,5 +12,6 @@ After cloning your repository, simply add your Google key to Nextflow's secret s
 
 ```bash
 nextflow secrets set GOOGLE_API_KEY "<YOUR_GOOGLE_AI_STUDIO_KEY>"
+nextflow secrets set USER_EMAIL "<your@email.com>"
 nextflow run main.nf
 ```
