@@ -32,7 +32,11 @@ process FETCH_ARTICLES {
 
     script:
     """
-    fetch_articles.py --journal_name "${JOURNAL_NAME}" --feed_url "${FEED_URL}" --cutoff_date "${LAST_CHECKED}"
+    fetch_articles.py \
+--journal_name "${JOURNAL_NAME}" \
+--feed_url "${FEED_URL}" \
+--cutoff_date "${LAST_CHECKED}" \
+--max_items 20
     """
 }
 
@@ -59,6 +63,29 @@ process SCREEN_ARTICLES {
     """
 }
 
+process PRIORITIZE_ARTICLES {
+
+    container 'community.wave.seqera.io/library/pip_google-adk:581ba88bd7868075'
+    secret 'GOOGLE_API_KEY'
+    secret 'SPRINGER_META_API_KEY'
+    secret 'USER_EMAIL'
+
+    input:
+    path ARTICLES_TSV
+    path RESEARCH_INTERESTS_PATH
+
+    output:
+    path "prioritized_articles.tsv"
+
+    script:
+    """
+    prioritize_articles.py \
+--in_articles_tsv ${ARTICLES_TSV} \
+--research_interests_path ${RESEARCH_INTERESTS_PATH} \
+--out_articles_tsv prioritized_articles.tsv
+    """
+}
+
 workflow {
 
     database_path = file(params.database_path)
@@ -74,12 +101,30 @@ workflow {
         journals = channel.fromQuery("SELECT name, feed_url, last_checked FROM sources", db: 'articles_db')
 
         FETCH_ARTICLES(journals)
-        SCREEN_ARTICLES(FETCH_ARTICLES.out, file(params.research_interests))
+
+        FETCH_ARTICLES.out
+            .collectFile(name: 'all_articles.tsv', storeDir: params.outdir)
+            .splitText(by: 50, keepHeader: true, file: true)
+            .set { all_articles }
+
+        SCREEN_ARTICLES(all_articles, file(params.research_interests))
 
         SCREEN_ARTICLES.out
-            .splitCsv(header: true, sep: '\t')
-            .map { row -> tuple(row.title, row.journal_name, row.link, row.date) }
-            .sqlInsert( into: 'articles', columns: 'title, journal_name, link, date', db: 'articles_db' )
+            .collectFile(name: 'screened_articles.tsv', storeDir: params.outdir)
+            .splitText(by: 50, keepHeader: true, file: true)
+            .set { screened_articles }
+
+        PRIORITIZE_ARTICLES(SCREEN_ARTICLES.out, file(params.research_interests))
+
+        PRIORITIZE_ARTICLES.out
+            .collectFile(name: 'prioritized_articles.tsv', storeDir: params.outdir)
+            .splitText(by: 50, keepHeader: true, file: true)
+            .set { prioritized_articles }
+
+        // SCREEN_ARTICLES.out
+        //     .splitCsv(header: true, sep: '\t')
+        //     .map { row -> tuple(row.title, row.journal_name, row.link, row.date) }
+        //     .sqlInsert( into: 'articles', columns: 'title, journal_name, link, date', db: 'articles_db' )
     }
 
 }

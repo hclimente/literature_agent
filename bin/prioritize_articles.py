@@ -19,7 +19,9 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 
-def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_tsv: str):
+def prioritize_articles(
+    in_articles_tsv: str, user_prompt_path: str, out_articles_tsv: str
+):
     """
     Screens articles based on user research interests.
 
@@ -31,7 +33,7 @@ def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_ts
         None
     """
     logging.info("-" * 20)
-    logging.info("screen_articles called with the following arguments:")
+    logging.info("prioritize_articles called with the following arguments:")
     logging.info(f"in_articles_tsv  : {in_articles_tsv}")
     logging.info(f"user_prompt_path : {user_prompt_path}")
     logging.info(f"out_articles_tsv : {out_articles_tsv}")
@@ -41,30 +43,36 @@ def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_ts
         user_prompt = F.read().strip()
 
     with open(in_articles_tsv, "r") as F_IN, open(out_articles_tsv, "w") as F_OUT:
+        F_IN.readline()  # skip header
         F_OUT.write("title\tjournal_name\tlink\tdate\n")
 
         for line in F_IN:
-            title, journal_name, link, summary, date = line.strip().split("\t")
+            line = line.strip()
 
-            logging.info(f"⌛ Began screening article '{title}' from {journal_name}")
+            if not line:
+                continue
 
-            prompt = f"Title: {title}\nJournal: {journal_name}\nSummary: {summary}\nURL: {link}\n"
+            title, journal_name, link, _ = line.split("\t")
+
+            logging.info(f"⌛ Began prioritizing article '{title}' from {journal_name}")
+
+            prompt = f"Title: {title}\nJournal: {journal_name}\nURL: {link}\n"
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=f"""
-You are a helpful assistant for screening scientific articles. Your ONLY job is to screen which articles
-could be worth reading by the user. Since using tools incurs in costly API calls, they should be used
-only when absolutely necessary.
+You are a helpful assistant for prioritizing scientific articles. Your job is to score which articles
+are worth reading by the user using a 5-point scale, where 0 means low priority and 5 means high priority.
 
-Here is a description of the user's interests:
+Note that the articles have already been screened for relevance. An article receiving a 0 might still be worth
+reading given infinite time; 3 is quite generous; 5 is a must-read, urgently.
 
-{user_prompt}
+Use as much information as you need from the article; retrieving additional information when needed.
 
-You must answer ONLY 'yes' or 'no'. No other text, punctuation, or explanation.
+Here is a description of the user's interests:\n{user_prompt}\n
 
-Here is the article to screen:
+You must answer ONLY an integer between 0 and 5. No other text, punctuation, or explanation.
 
-{prompt}
+Here is the article to prioritize:\n{prompt}"
                 """,
                 config=types.GenerateContentConfig(
                     thinking_config=types.ThinkingConfig(include_thoughts=True),
@@ -75,10 +83,10 @@ Here is the article to screen:
             decision = response.text.strip().lower()
             logging.info(f"Decision: {decision}")
 
-            if decision not in ["yes", "no"]:
+            if decision not in [str(x) for x in range(0, 6)]:
                 logging.error("❌ Unexpected decision")
-            elif decision == "yes":
-                F_OUT.write(f"{title}\t{journal_name}\t{link}\t{date}\n")
+            else:
+                F_OUT.write(f"{title}\t{journal_name}\t{decision}\n")
 
             for part in response.candidates[0].content.parts:
                 if not part.text:
@@ -86,7 +94,7 @@ Here is the article to screen:
                 if part.thought:
                     logging.info(f"Thought: {part.text}")
 
-            logging.info(f"✅ Done screening article '{title}' from {journal_name}")
+            logging.info(f"✅ Done prioritizing article '{title}' from {journal_name}")
 
 
 if __name__ == "__main__":
@@ -99,7 +107,7 @@ if __name__ == "__main__":
         "--in_articles_tsv",
         type=str,
         required=True,
-        help="The path to the input TSV file containing the articles to screen.",
+        help="The path to the input TSV file containing the articles to prioritize.",
     )
     parser.add_argument(
         "--research_interests_path",
@@ -111,11 +119,11 @@ if __name__ == "__main__":
         "--out_articles_tsv",
         type=str,
         required=True,
-        help="The path to the output TSV file to store the screened articles.",
+        help="The path to the output TSV file to store the article priorities.",
     )
 
     args = parser.parse_args()
 
-    screen_articles(
+    prioritize_articles(
         args.in_articles_tsv, args.research_interests_path, args.out_articles_tsv
     )
