@@ -18,7 +18,7 @@ def create_journal_table(db_path: str, global_cutoff_date: str):
             CREATE TABLE IF NOT EXISTS sources (
                 name TEXT PRIMARY KEY,
                 feed_url TEXT NOT NULL,
-                last_checked DATE
+                last_checked TEXT NOT NULL
             )
         """)
         logging.info("✅ Done creating sources table")
@@ -76,9 +76,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Fetch articles from RSS feeds and store them in a database."
     )
+    parser.add_argument(
+        "--db_path",
+        type=str,
+        default="literature_agent.db",
+        help="Path to the SQLite database file.",
+    )
 
     args = parser.parse_args()
 
     global_cutoff_date = time.strftime("%Y-%m-%d")
-    create_journal_table(global_cutoff_date)
-    create_articles_table()
+    create_journal_table(args.db_path, global_cutoff_date)
+    create_articles_table(args.db_path)
