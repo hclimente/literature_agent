@@ -24,7 +24,7 @@ def get_abstract_from_doi(doi: str, email: str = os.environ.get("USER_EMAIL")) -
     Retrieves the abstract of a publication from its DOI.
 
     Args:
-        doi: The Digital Object Identifier (e.g., "10.1038/nature1718043").
+        doi (str): The Digital Object Identifier (DOI) of the article.
         email: Your email address, required by NCBI's API usage policy. Defaults to the USER_EMAIL
         environment variable.
 
@@ -89,14 +89,14 @@ def springer_get_abstract_from_doi(
     doi: str, api_key: str = os.environ.get("SPRINGER_META_API_KEY")
 ) -> str | None:
     """
-    Retrieves the abstract of a Springer Nature article using its DOI.
+    Retrieves the abstract for an article from a Springer journal using its DOI.
 
     Args:
         doi (str): The Digital Object Identifier (DOI) of the article.
-        api_key (str): Your Springer Nature API key.
+        api_key (str): Your Springer Meta API key.
 
     Returns:
-        str | None: The article's abstract as a string if found, otherwise None.
+        The abstract text as a string, or an error message if retrieval fails.
     """
     base_url = "https://api.springernature.com/meta/v2/json"
 
@@ -111,32 +111,36 @@ def springer_get_abstract_from_doi(
 
         # Check if any records were returned
         if not data.get("records"):
-            print(f"Warning: No records found for DOI: {doi}")
-            return None
+            return f"Warning: No records found for DOI: {doi}"
 
         # Extract the abstract from the first record
         # The abstract can contain HTML tags like <p>, <i>, etc.
         abstract = data["records"][0].get("abstract")
         if not abstract:
-            print(f"Warning: Abstract not available for DOI: {doi}")
-            return None
+            return f"Warning: Abstract not available for DOI: {doi}"
 
         return abstract
 
     except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err} - Check your DOI or API key.")
-        return None
+        return f"HTTP error occurred: {http_err} - Check your DOI or API key."
     except requests.exceptions.RequestException as req_err:
-        print(f"A request error occurred: {req_err}")
-        return None
+        return f"A request error occurred: {req_err}"
     except (KeyError, IndexError) as json_err:
-        print(
-            f"Error parsing JSON response: {json_err}. The API response structure might have changed."
-        )
-        return None
+        return f"Error parsing JSON response: {json_err}. The API response structure might have changed."
 
 
+# Main screening function
 def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_tsv: str):
+    """
+    Screens articles based on user research interests.
+
+    Args:
+        in_articles_tsv (str): Path to the input TSV file containing articles to screen.
+        user_prompt_path (str): Path to the text file containing the user's research interests.
+        out_articles_tsv (str): Path to the output TSV file to store the screened articles
+    Returns:
+        None
+    """
     with open(user_prompt_path, "r") as F:
         user_prompt = F.read().strip()
 
