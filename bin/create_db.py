@@ -1,24 +1,24 @@
+import argparse
 import logging
 import time
 
 import duckdb
 
-DB_PATH = "rss_sources.db"
 
-
-def create_journal_table(global_cutoff_date):
+def create_journal_table(db_path: str, global_cutoff_date: str):
     logging.info("-" * 20)
     logging.info("Called create_journal_table with the following arguments:")
+    logging.info(f"db_path            : {db_path}")
     logging.info(f"global_cutoff_date : {global_cutoff_date}")
     logging.info("-" * 20)
 
-    with duckdb.connect(DB_PATH) as con:
+    with duckdb.connect(db_path) as con:
         logging.info("⌛ Began creating sources table...")
         con.execute("""
             CREATE TABLE IF NOT EXISTS sources (
                 name TEXT PRIMARY KEY,
                 feed_url TEXT NOT NULL,
-                last_checked DATE
+                last_checked TEXT NOT NULL
             )
         """)
         logging.info("✅ Done creating sources table")
@@ -44,12 +44,13 @@ def create_journal_table(global_cutoff_date):
         logging.info("✅ Done inserting journal sources")
 
 
-def create_articles_table():
+def create_articles_table(db_path: str):
     logging.info("-" * 20)
-    logging.info("Called create_articles_table")
+    logging.info("Called create_articles_table with the following arguments:")
+    logging.info(f"db_path : {db_path}")
     logging.info("-" * 20)
 
-    with duckdb.connect(DB_PATH) as con:
+    with duckdb.connect(db_path) as con:
         logging.info("⌛ Began creating articles table...")
         con.execute("CREATE SEQUENCE article_id_seq START 1;")
 
@@ -72,6 +73,18 @@ def create_articles_table():
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
+    parser = argparse.ArgumentParser(
+        description="Fetch articles from RSS feeds and store them in a database."
+    )
+    parser.add_argument(
+        "--db_path",
+        type=str,
+        default="literature_agent.db",
+        help="Path to the SQLite database file.",
+    )
+
+    args = parser.parse_args()
+
     global_cutoff_date = time.strftime("%Y-%m-%d")
-    create_journal_table(global_cutoff_date)
-    create_articles_table()
+    create_journal_table(args.db_path, global_cutoff_date)
+    create_articles_table(args.db_path)

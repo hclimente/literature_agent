@@ -7,3 +7,4 @@ work/
 # python files
 .ruff_cache/
 .venv/
+__pycache__
