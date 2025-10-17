@@ -1,4 +1,4 @@
-include { fromQuery } from 'plugin/nf-sqldb'
+include { fromQuery; sqlInsert } from 'plugin/nf-sqldb'
 
 process FETCH_ARTICLES {
 
@@ -46,5 +46,10 @@ workflow {
 
     FETCH_ARTICLES(journals)
     SCREEN_ARTICLES(FETCH_ARTICLES.out, file(params.research_interests))
+
+    SCREEN_ARTICLES.out
+        .splitCsv(header: true, sep: '\t')
+        .map { row -> tuple(row.title, row.journal_name, row.link, row.date) }
+        .sqlInsert( into: 'articles', columns: 'title, journal_name, link, date', db: 'articles_db' )
 
 }

@@ -147,21 +147,22 @@ def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_ts
     with (
         open(in_articles_tsv, "r") as F_IN,
         open(out_articles_tsv, "w") as F_OUT,
-        open("thoughts.tsv", "w") as F_THOUGHTS,
+        open("thoughts.log", "w") as F_THOUGHTS,
     ):
+        F_OUT.write("title\tjournal_name\tlink\tdate\n")
+
         for line in F_IN:
-            title, journal, link, summary, date = line.strip().split("\t")
-            prompt = f"Title: {title}\nJournal: {journal}\nSummary: {summary}\n"
+            title, journal_name, link, summary, date = line.strip().split("\t")
+            prompt = f"Title: {title}\nJournal: {journal_name}\nSummary: {summary}\n"
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=(
                     "You are a helpful assistant for screening scientific articles. Your ONLY job is to "
-                    "screen which articles could be worth reading by the user. A priority is to minimize "
-                    "false negatives. A second priority is to use as little information as possible: if the "
-                    "title is enough, do not fetch the abstract. Here is a description of the user's interests:\n"
-                    f"{user_prompt}\n"
-                    "You must answer ONLY 'yes' or 'no'. No other text, punctuation, or explanation is permitted."
-                    f"Here is the article to screen:\n{prompt}"
+                    "screen which articles could be worth reading by the user. Since using tools incurs "
+                    "in costly API calls, they should be used only when absolutely necessary. "
+                    f"Here is a description of the user's interests:\n{user_prompt}\n"
+                    "You must answer ONLY 'yes' or 'no'. No other text, punctuation, or explanation is "
+                    f"permitted. Here is the article to screen:\n{prompt}"
                 ),
                 config=types.GenerateContentConfig(
                     thinking_config=types.ThinkingConfig(include_thoughts=True),
@@ -175,7 +176,7 @@ def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_ts
                     F_THOUGHTS.write(f"---\n{title}\n{part.text}\n")
 
             if response.text.strip().lower() == "yes":
-                F_OUT.write(f"{title}\t{link}\n")
+                F_OUT.write(f"{title}\t{journal_name}\t{link}\t{date}\n")
             if response.text.strip().lower() not in ["yes", "no"]:
                 print(
                     f"Warning: Unexpected response from agent for article '{title}': {response.text}"

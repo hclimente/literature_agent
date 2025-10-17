@@ -16,6 +16,11 @@ def create_journal_table():
         # add entries
         sources = [
             ("Nature Genetics", "https://www.nature.com/ng.rss", "2025-10-05"),
+            (
+                "Nature Reviews Drug Discovery",
+                "https://www.nature.com/nrd.rss",
+                "2025-10-05",
+            ),
         ]
         con.executemany(
             """
@@ -28,14 +33,15 @@ def create_journal_table():
 
 def create_articles_table():
     with duckdb.connect(DB_PATH) as con:
+        con.execute("CREATE SEQUENCE article_id_seq START 1;")
+
         # create table to store articles
         con.execute("""
             CREATE TABLE IF NOT EXISTS articles (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY DEFAULT NEXTVAL('article_id_seq'),
                 journal_name TEXT,
                 title TEXT NOT NULL,
                 link TEXT NOT NULL,
-                summary TEXT,
                 date DATE NOT NULL,
                 reviewed BOOLEAN DEFAULT 0,
                 priority INTEGER DEFAULT 0,

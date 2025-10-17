@@ -6,4 +6,4 @@ SUBFIELDS:
     - Drug discovery
 FAVORITE ARTICLE TYPES:
     - Reviews
-    - Methodological advances
+    - New computational methods
