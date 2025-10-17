@@ -5,7 +5,7 @@ import requests
 import xml.etree.ElementTree as ET
 
 from google import genai
-from google.adk.agents.llm_agent import Agent
+from google.genai import types
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -15,7 +15,7 @@ if not API_KEY:
         "Did you remember to `nextflow secrets set GOOGLE_API_KEY '<YOUR-KEY'`?"
     )
 
-genai.Client(api_key=API_KEY)
+client = genai.Client(api_key=API_KEY)
 
 
 # Tools
@@ -85,28 +85,92 @@ def get_abstract_from_doi(doi: str, email: str = os.environ.get("USER_EMAIL")) -
         return f"Parsing Error: Failed to parse XML response. {e}"
 
 
-agent = Agent(
-    model="gemini-2.5-flash",
-    name="root_agent",
-    description="A helpful assistant for getting scientific articles.",
-    instruction=(
-        "You are a helpful assistant for screening scientific articles. "
-        "Your ONLY job is to determine if the provided article is worth reading, using as little information as possible."
-        "You must answer ONLY 'yes' or 'no'. No other text, punctuation, or explanation is permitted.",
-    ),
-    tools=[get_abstract_from_doi],
-)
+def springer_get_abstract_from_doi(
+    doi: str, api_key: str = os.environ.get("SPRINGER_META_API_KEY")
+) -> str | None:
+    """
+    Retrieves the abstract of a Springer Nature article using its DOI.
+
+    Args:
+        doi (str): The Digital Object Identifier (DOI) of the article.
+        api_key (str): Your Springer Nature API key.
+
+    Returns:
+        str | None: The article's abstract as a string if found, otherwise None.
+    """
+    base_url = "https://api.springernature.com/meta/v2/json"
+
+    params = {"q": f"doi:{doi}", "api_key": api_key}
+
+    try:
+        response = requests.get(base_url, params=params, timeout=10)
+        # Raise an exception for bad status codes (4xx or 5xx)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Check if any records were returned
+        if not data.get("records"):
+            print(f"Warning: No records found for DOI: {doi}")
+            return None
+
+        # Extract the abstract from the first record
+        # The abstract can contain HTML tags like <p>, <i>, etc.
+        abstract = data["records"][0].get("abstract")
+        if not abstract:
+            print(f"Warning: Abstract not available for DOI: {doi}")
+            return None
+
+        return abstract
+
+    except requests.exceptions.HTTPError as http_err:
+        print(f"HTTP error occurred: {http_err} - Check your DOI or API key.")
+        return None
+    except requests.exceptions.RequestException as req_err:
+        print(f"A request error occurred: {req_err}")
+        return None
+    except (KeyError, IndexError) as json_err:
+        print(
+            f"Error parsing JSON response: {json_err}. The API response structure might have changed."
+        )
+        return None
 
 
-def screen_articles(in_articles_tsv: str, out_articles_tsv: str):
-    with open(in_articles_tsv, "r") as F_IN, open(out_articles_tsv, "w") as F_OUT:
+def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_tsv: str):
+    with open(user_prompt_path, "r") as F:
+        user_prompt = F.read().strip()
+
+    with (
+        open(in_articles_tsv, "r") as F_IN,
+        open(out_articles_tsv, "w") as F_OUT,
+        open("thoughts.tsv", "w") as F_THOUGHTS,
+    ):
         for line in F_IN:
-            title, link, summary, date = line.strip().split("\t")
-            prompt = f"Title: {title}\nSummary: {summary}\n"
-            response = agent.chat(prompt)
+            title, journal, link, summary, date = line.strip().split("\t")
+            prompt = f"Title: {title}\nJournal: {journal}\nSummary: {summary}\n"
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=(
+                    "You are a helpful assistant for screening scientific articles. Your ONLY job is to "
+                    "screen which articles could be worth reading by the user. A priority is using as little "
+                    "information as possible: if the title is enough, do not read the summary. Here is a "
+                    f"description of the user's research interests:\n{user_prompt}\n"
+                    "You must answer ONLY 'yes' or 'no'. No other text, punctuation, or explanation is permitted."
+                    f"Here is the article to screen:\n{prompt}"
+                ),
+                config=types.GenerateContentConfig(
+                    thinking_config=types.ThinkingConfig(include_thoughts=True),
+                    tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
+                ),
+            )
+            for part in response.candidates[0].content.parts:
+                if not part.text:
+                    continue
+                if part.thought:
+                    F_THOUGHTS.write(f"---\n{title}\n{part.text}\n")
 
             if response.text.strip().lower() == "yes":
-                F_OUT.write(f"{title}\t{link}\t{response.text}\t{date}\n")
+                F_OUT.write(f"{title}\t{link}\n")
             if response.text.strip().lower() not in ["yes", "no"]:
                 print(
                     f"Warning: Unexpected response from agent for article '{title}': {response.text}"
@@ -120,16 +184,24 @@ if __name__ == "__main__":
     parser.add_argument(
         "--in_articles_tsv",
         type=str,
-        # required=True,
+        required=True,
         help="The path to the input TSV file containing the articles to screen.",
+    )
+    parser.add_argument(
+        "--research_interests_path",
+        type=str,
+        required=True,
+        help="The path to a text file containing the user's research interests.",
     )
     parser.add_argument(
         "--out_articles_tsv",
         type=str,
-        # required=True,
+        required=True,
         help="The path to the output TSV file to store the screened articles.",
     )
 
     args = parser.parse_args()
 
-    screen_articles(args.in_articles_tsv, args.out_articles_tsv)
+    screen_articles(
+        args.in_articles_tsv, args.research_interests_path, args.out_articles_tsv
+    )

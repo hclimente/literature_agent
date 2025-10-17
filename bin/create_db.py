@@ -15,7 +15,7 @@ def create_journal_table():
 
         # add entries
         sources = [
-            ("Nature", "https://www.nature.com/nature.rss", "2025-10-05"),
+            ("Nature Genetics", "https://www.nature.com/ng.rss", "2025-10-05"),
         ]
         con.executemany(
             """
@@ -45,5 +45,5 @@ def create_articles_table():
 
 
 if __name__ == "__main__":
-    # create_journal_table()
+    create_journal_table()
     create_articles_table()
