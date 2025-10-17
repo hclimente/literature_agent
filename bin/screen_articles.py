@@ -152,9 +152,10 @@ def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_ts
                 model="gemini-2.5-flash",
                 contents=(
                     "You are a helpful assistant for screening scientific articles. Your ONLY job is to "
-                    "screen which articles could be worth reading by the user. A priority is using as little "
-                    "information as possible: if the title is enough, do not read the summary. Here is a "
-                    f"description of the user's research interests:\n{user_prompt}\n"
+                    "screen which articles could be worth reading by the user. A priority is to minimize "
+                    "false negatives. A second priority is to use as little information as possible: if the "
+                    "title is enough, do not fetch the abstract. Here is a description of the user's interests:\n"
+                    f"{user_prompt}\n"
                     "You must answer ONLY 'yes' or 'no'. No other text, punctuation, or explanation is permitted."
                     f"Here is the article to screen:\n{prompt}"
                 ),
