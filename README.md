@@ -4,12 +4,11 @@
 
 - [Nextflow 25.04](https://www.nextflow.io/)
 - Docker
-- A valid
-- Add some secrets to Nextflow's secret store:
+- Add the following secrets to Nextflow's secret store:
     - Required:
         - `GOOGLE_API_KEY`: get it from [Google AI Studio API key](https://aistudio.google.com/app/api-keys)
         - `USER_EMAIL`: your email address, to fetch metadata from the NCBI API
-    - Optional
+    - Optional, for additional capabilities:
         - `SPRINGER_META_API_KEY`: get an account from [Springer](https://dev.springernature.com/) to get article metadata.
 
 <details>
