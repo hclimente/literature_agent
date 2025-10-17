@@ -1,5 +1,24 @@
 include { fromQuery; sqlInsert } from 'plugin/nf-sqldb'
 
+process CREATE_ARTICLES_DB {
+
+    container 'duckdb/duckdb:1.4.1'
+    publishDir "${DB_PARENT_DIR}", mode: 'copy'
+
+    input:
+    val DB_FILENAME
+    val DB_PARENT_DIR
+
+    output:
+    path DATABASE_PATH
+
+    script:
+    """
+    create_db.py --db_path "${DB_FILENAME}"
+    """
+
+}
+
 process FETCH_ARTICLES {
 
     container 'community.wave.seqera.io/library/pip_feedparser:daf4046ba37d0661'
@@ -42,14 +61,25 @@ process SCREEN_ARTICLES {
 
 workflow {
 
-    journals = channel.fromQuery("SELECT name, feed_url, last_checked FROM sources", db: 'articles_db')
+    database_path = file(params.database_path)
 
-    FETCH_ARTICLES(journals)
-    SCREEN_ARTICLES(FETCH_ARTICLES.out, file(params.research_interests))
+    if ( !database_path.exists() ) {
+        println "Articles database not found. Creating a new one at: ${database_path}."
+        println "Upon completion, re-run the workflow."
+        // TODO this process crashes, there are errors with the Docker container
+        db_filename = database_path.getBaseName()
+        db_parent_dir = database_path.getParent()
+        CREATE_ARTICLES_DB(db_filename, db_parent_dir)
+    } else {
+        journals = channel.fromQuery("SELECT name, feed_url, last_checked FROM sources", db: 'articles_db')
 
-    SCREEN_ARTICLES.out
-        .splitCsv(header: true, sep: '\t')
-        .map { row -> tuple(row.title, row.journal_name, row.link, row.date) }
-        .sqlInsert( into: 'articles', columns: 'title, journal_name, link, date', db: 'articles_db' )
+        FETCH_ARTICLES(journals)
+        SCREEN_ARTICLES(FETCH_ARTICLES.out, file(params.research_interests))
+
+        SCREEN_ARTICLES.out
+            .splitCsv(header: true, sep: '\t')
+            .map { row -> tuple(row.title, row.journal_name, row.link, row.date) }
+            .sqlInsert( into: 'articles', columns: 'title, journal_name, link, date', db: 'articles_db' )
+    }
 
 }
