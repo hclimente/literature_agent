@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import logging
 from time import strptime
 
 import feedparser
@@ -22,15 +23,26 @@ def fetch_rss_feed(
         list: A list of dictionaries, each containing 'title', 'link', 'summary', and 'date' of an article.
     """
 
+    logging.info("-" * 20)
+    logging.info("fetch_rss_feed called with the following arguments:")
+    logging.info(f"journal_name : {journal_name}")
+    logging.info(f"url          : {url}")
+    logging.info(f"cuttoff_date : {cuttoff_date}")
+    logging.info(f"max_items    : {max_items}")
+    logging.info("-" * 20)
+
     cuttoff_date = strptime(cuttoff_date, "%Y-%m-%d")
 
+    logging.info("Began fetching RSS feed...")
     feed = feedparser.parse(url)
 
     # Check if the feed and entries were parsed correctly.
     if "bozo" in feed and feed.bozo == 1:
-        print(f"Warning: The feed at {url} may be malformed.")
+        logging.warning(f"⚠️ The feed at {url} may be malformed.")
         # You might still get data, but it's good to know.
+    logging.info("✅ Done fetching RSS feed")
 
+    logging.info("Began writing articles to TSV...")
     with open("articles.tsv", "w") as f:
         for item in feed.entries[:max_items]:
             item_date = strptime(item.updated, "%Y-%m-%d")
@@ -40,6 +52,7 @@ def fetch_rss_feed(
             f.write(
                 f"{item.title}\t{journal_name}\t{item.link}\t{item.summary}\t{item.updated}\n"
             )
+    logging.info("✅ Done writing articles to TSV")
 
 
 if __name__ == "__main__":
