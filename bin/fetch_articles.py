@@ -33,7 +33,7 @@ def fetch_rss_feed(
 
     cuttoff_date = strptime(cuttoff_date, "%Y-%m-%d")
 
-    logging.info("Began fetching RSS feed...")
+    logging.info("⌛ Began fetching RSS feed...")
     feed = feedparser.parse(url)
 
     # Check if the feed and entries were parsed correctly.
@@ -42,7 +42,7 @@ def fetch_rss_feed(
         # You might still get data, but it's good to know.
     logging.info("✅ Done fetching RSS feed")
 
-    logging.info("Began writing articles to TSV...")
+    logging.info("⌛ Began writing articles to TSV...")
     with open("articles.tsv", "w") as f:
         for item in feed.entries[:max_items]:
             item_date = strptime(item.updated, "%Y-%m-%d")

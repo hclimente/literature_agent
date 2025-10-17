@@ -46,7 +46,7 @@ def get_abstract_from_doi(doi: str, email: str = os.environ.get("USER_EMAIL")) -
     )
 
     try:
-        logging.info("Began retrieving PMID from DOI...")
+        logging.info("⌛ Began retrieving PMID from DOI...")
         esearch_response = requests.get(esearch_url, timeout=10)
         esearch_response.raise_for_status()
 
@@ -61,7 +61,7 @@ def get_abstract_from_doi(doi: str, email: str = os.environ.get("USER_EMAIL")) -
         logging.info(f"Retrieved PMID: {pmid}")
         logging.info("✅ Done retrieving PMID from DOI")
 
-        logging.info("Began retrieving abstract from PMID...")
+        logging.info("⌛ Began retrieving abstract from PMID...")
         # --- 2. EFetch: Retrieve Full Record as XML (Per your request) ---
         efetch_url = f"{BASE_URL}efetch.fcgi?db=pubmed&id={pmid}&retmode=xml&rettype=abstract&email={email}"
 
@@ -129,7 +129,7 @@ def springer_get_abstract_from_doi(
     params = {"q": f"doi:{doi}", "api_key": api_key}
 
     try:
-        logging.info("Began retrieving abstract from Springer API...")
+        logging.info("⌛ Began retrieving abstract from Springer API...")
         response = requests.get(base_url, params=params, timeout=10)
         # Raise an exception for bad status codes (4xx or 5xx)
         response.raise_for_status()
@@ -197,7 +197,7 @@ def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_ts
         for line in F_IN:
             title, journal_name, link, summary, date = line.strip().split("\t")
 
-            logging.info(f"Began screening article '{title}' from {journal_name}")
+            logging.info(f"⌛ Began screening article '{title}' from {journal_name}")
 
             prompt = f"Title: {title}\nJournal: {journal_name}\nSummary: {summary}\n"
             response = client.models.generate_content(
