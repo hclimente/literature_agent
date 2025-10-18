@@ -6,6 +6,17 @@ from time import strptime
 import feedparser
 
 
+def sanitize_text(text: str) -> str:
+    """
+    Sanitize text by escaping special characters (\", \')
+    Args:
+        text (str): The text to sanitize.
+    Returns:
+        str: The sanitized text.
+    """
+    return text.replace('"', '\\"').replace("'", "\\'")
+
+
 def fetch_rss_feed(
     journal_name: str,
     url: str,
@@ -44,13 +55,17 @@ def fetch_rss_feed(
 
     logging.info("⌛ Began writing articles to TSV...")
     with open("articles.tsv", "w") as f:
+        f.write("title\tjournal_name\tlink\tsummary\tdate\n")
         for item in feed.entries[:max_items]:
             item_date = strptime(item.updated, "%Y-%m-%d")
             if item_date < cuttoff_date:
                 break
 
+            title = sanitize_text(item.title)
+            summary = sanitize_text(item.summary)
+
             f.write(
-                f"{item.title}\t{journal_name}\t{item.link}\t{item.summary}\t{item.updated}\n"
+                f"{title}\t{journal_name}\t{item.link}\t{summary}\t{item.updated}\n"
             )
     logging.info("✅ Done writing articles to TSV")
 

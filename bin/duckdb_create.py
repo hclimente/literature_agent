@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import argparse
 import logging
 import time
@@ -56,14 +57,17 @@ def create_articles_table(db_path: str):
         # create table to store articles
         con.execute("""
             CREATE TABLE IF NOT EXISTS articles (
-                id INTEGER PRIMARY KEY DEFAULT NEXTVAL('article_id_seq'),
-                journal_name TEXT,
+                id INTEGER DEFAULT NEXTVAL('article_id_seq'),
                 title TEXT NOT NULL,
+                journal_name TEXT,
+                summary TEXT NOT NULL,
                 link TEXT NOT NULL,
                 date DATE NOT NULL,
+                doi TEXT DEFAULT NULL,
                 screened BOOLEAN DEFAULT NULL,
                 priority INTEGER DEFAULT NULL,
-                FOREIGN KEY (journal_name) REFERENCES sources(name)
+                FOREIGN KEY (journal_name) REFERENCES sources(name),
+                PRIMARY KEY (title, journal_name)
             )
             """)
         logging.info("✅ Done creating articles table")
@@ -78,7 +82,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--db_path",
         type=str,
-        default="literature_agent.db",
+        default="literature_agent.duckdb",
         help="Path to the SQLite database file.",
     )
     parser.add_argument(

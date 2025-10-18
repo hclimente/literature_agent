@@ -19,87 +19,107 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 
-def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_tsv: str):
+def screen_article(
+    title: str, journal_name: str, summary: str, doi: str, research_interests_path: str
+):
     """
     Screens articles based on user research interests.
 
     Args:
-        in_articles_tsv (str): Path to the input TSV file containing articles to screen.
-        user_prompt_path (str): Path to the text file containing the user's research interests.
-        out_articles_tsv (str): Path to the output TSV file to store the screened articles
+        title (str): The title of the article to screen.
+        journal_name (str): The journal name of the article to screen.
+        summary (str): The summary of the article to screen.
+        doi (str): The DOI of the article to screen.
+        research_interests_path (str): The path to a text file containing the user's research interests.
     Returns:
-        None
+        None. Writes the screening decision to 'decision.txt'.
     """
     logging.info("-" * 20)
-    logging.info("screen_articles called with the following arguments:")
-    logging.info(f"in_articles_tsv  : {in_articles_tsv}")
-    logging.info(f"user_prompt_path : {user_prompt_path}")
-    logging.info(f"out_articles_tsv : {out_articles_tsv}")
+    logging.info("screen_article called with the following arguments:")
+    logging.info(f"title                   : {title}")
+    logging.info(f"journal_name            : {journal_name}")
+    logging.info(f"summary                 : {summary}")
+    logging.info(f"doi                     : {doi}")
+    logging.info(f"research_interests_path : {research_interests_path}")
     logging.info("-" * 20)
 
-    with open(user_prompt_path, "r") as F:
-        user_prompt = F.read().strip()
+    with open(research_interests_path, "r") as F:
+        research_interests = F.read().strip()
 
-    with open(in_articles_tsv, "r") as F_IN, open(out_articles_tsv, "w") as F_OUT:
-        F_OUT.write("title\tjournal_name\tlink\tdate\n")
+    logging.info(f"⌛ Began screening article '{title}' from {journal_name}")
 
-        for line in F_IN:
-            title, journal_name, link, summary, date = line.strip().split("\t")
-
-            logging.info(f"⌛ Began screening article '{title}' from {journal_name}")
-
-            prompt = f"Title: {title}\nJournal: {journal_name}\nSummary: {summary}\nURL: {link}\n"
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=f"""
+    system_instruction = f"""
 You are a helpful assistant for screening scientific articles. Your ONLY job is to screen which articles
 could be worth reading by the user. Since using tools incurs in costly API calls, they should be used
 only when absolutely necessary.
 
 Here is a description of the user's interests:
 
-{user_prompt}
+{research_interests}
 
-You must answer ONLY 'yes' or 'no'. No other text, punctuation, or explanation.
+You must answer ONLY 'true' (for yes) or 'no' (for false). No other text, punctuation, or explanation.
+"""
+    prompt = (
+        f"Title: {title}\nJournal: {journal_name}\nSummary: {summary}\ndoi: {doi}\n"
+    )
+    response = client.models.generate_content(
+        model="gemini-2.5-flash-lite",
+        contents=f"Here is the article to screen:{prompt}",
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            thinking_config=types.ThinkingConfig(include_thoughts=True),
+            tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
+        ),
+    )
 
-Here is the article to screen:
+    decision = response.text.strip().lower()
+    logging.info(f"Decision: {decision}")
 
-{prompt}
-                """,
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(include_thoughts=True),
-                    tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
-                ),
-            )
+    with open("decision.txt", "w") as f:
+        if decision not in ["true", "false"]:
+            logging.error("❌ Unexpected decision")
+            f.write("NULL")
+        else:
+            f.write(decision)
 
-            decision = response.text.strip().lower()
-            logging.info(f"Decision: {decision}")
+    for part in response.candidates[0].content.parts:
+        if not part.text:
+            continue
+        if part.thought:
+            logging.info(f"Thought: {part.text}")
 
-            if decision not in ["yes", "no"]:
-                logging.error("❌ Unexpected decision")
-            elif decision == "yes":
-                F_OUT.write(f"{title}\t{journal_name}\t{link}\t{date}\n")
-
-            for part in response.candidates[0].content.parts:
-                if not part.text:
-                    continue
-                if part.thought:
-                    logging.info(f"Thought: {part.text}")
-
-            logging.info(f"✅ Done screening article '{title}' from {journal_name}")
+    logging.info(f"✅ Done screening article '{title}' from {journal_name}")
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(
-        description="Fetch articles from RSS feeds and store them in a database."
+        description="Screen articles based on user research interests."
     )
     parser.add_argument(
-        "--in_articles_tsv",
+        "--title",
         type=str,
         required=True,
-        help="The path to the input TSV file containing the articles to screen.",
+        help="The title of the article to screen.",
+    )
+    parser.add_argument(
+        "--journal_name",
+        type=str,
+        required=True,
+        help="The journal name of the article to screen.",
+    )
+    parser.add_argument(
+        "--summary",
+        type=str,
+        required=True,
+        help="The summary of the article to screen.",
+    )
+    parser.add_argument(
+        "--doi",
+        type=str,
+        required=True,
+        help="The DOI of the article to screen.",
     )
     parser.add_argument(
         "--research_interests_path",
@@ -107,15 +127,13 @@ if __name__ == "__main__":
         required=True,
         help="The path to a text file containing the user's research interests.",
     )
-    parser.add_argument(
-        "--out_articles_tsv",
-        type=str,
-        required=True,
-        help="The path to the output TSV file to store the screened articles.",
-    )
 
     args = parser.parse_args()
 
-    screen_articles(
-        args.in_articles_tsv, args.research_interests_path, args.out_articles_tsv
+    screen_article(
+        args.title,
+        args.journal_name,
+        args.summary,
+        args.doi,
+        args.research_interests_path,
     )
