@@ -1,5 +1,11 @@
 include { fromQuery; sqlInsert } from 'plugin/nf-sqldb'
 
+def collectAndSplitFiles(channel, filename, outputDir, splitSize = 50) {
+    return channel
+        .collectFile(name: filename, storeDir: outputDir)
+        .splitText(by: splitSize, keepHeader: true, file: true)
+}
+
 process CREATE_ARTICLES_DB {
 
     container 'duckdb/duckdb:1.4.1'
@@ -102,24 +108,15 @@ workflow {
 
         FETCH_ARTICLES(journals)
 
-        FETCH_ARTICLES.out
-            .collectFile(name: 'all_articles.tsv', storeDir: params.outdir)
-            .splitText(by: 50, keepHeader: true, file: true)
-            .set { all_articles }
+        all_articles = collectAndSplitFiles(FETCH_ARTICLES.out, 'all_articles.tsv', params.outdir)
 
         SCREEN_ARTICLES(all_articles, file(params.research_interests))
 
-        SCREEN_ARTICLES.out
-            .collectFile(name: 'screened_articles.tsv', storeDir: params.outdir)
-            .splitText(by: 50, keepHeader: true, file: true)
-            .set { screened_articles }
+        screened_articles = collectAndSplitFiles(SCREEN_ARTICLES.out, 'screened_articles.tsv', params.outdir)
 
         PRIORITIZE_ARTICLES(SCREEN_ARTICLES.out, file(params.research_interests))
 
-        PRIORITIZE_ARTICLES.out
-            .collectFile(name: 'prioritized_articles.tsv', storeDir: params.outdir)
-            .splitText(by: 50, keepHeader: true, file: true)
-            .set { prioritized_articles }
+        prioritized_articles = collectAndSplitFiles(PRIORITIZE_ARTICLES.out, 'prioritized_articles.tsv', params.outdir)
 
         // SCREEN_ARTICLES.out
         //     .splitCsv(header: true, sep: '\t')
