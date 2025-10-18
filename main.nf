@@ -1,9 +1,41 @@
-include { fromQuery; sqlInsert } from 'plugin/nf-sqldb'
+include { fromQuery; sqlInsert; sqlExecute } from 'plugin/nf-sqldb'
 
-def collectAndSplitFiles(channel, filename, outputDir, splitSize = 50) {
+// Function to update processing flags for existing articles
+def updateArticlesFlag(channel, flagColumn, db = 'articles_db') {
     return channel
-        .collectFile(name: filename, storeDir: outputDir)
-        .splitText(by: splitSize, keepHeader: true, file: true)
+        .splitCsv(header: true, sep: '\t')
+        .map { row -> 
+            sqlExecute(
+                db: db,
+                statement: """
+                    UPDATE articles SET ${flagColumn} = ${row.decision} WHERE link = '${row.link}'
+                """
+            )
+        }
+}
+
+// Function to get articles by processing stage for incremental processing
+def getUnprocessedArticles(flagColumn, db = 'articles_db') {
+    return channel.fromQuery(
+        "SELECT * FROM articles WHERE ${flagColumn} IS NULL", 
+        db: db
+    )
+}
+
+// Function to insert new articles with UPSERT logic
+def insertNewArticles(channel, db = 'articles_db') {
+    return channel
+        .splitCsv(header: true, sep: '\t')
+        .map { row -> 
+            // Use INSERT OR IGNORE to avoid duplicates based on unique link
+            sqlExecute(
+                db: db,
+                statement: """
+                    INSERT OR IGNORE INTO articles (title, journal_name, link, date, abstract, fetched) 
+                    VALUES ('${row.title}', '${row.journal_name}', '${row.link}', '${row.date}', '${row.abstract ?: ''}', true)
+                """
+            )
+        }
 }
 
 process CREATE_ARTICLES_DB {
@@ -12,6 +44,7 @@ process CREATE_ARTICLES_DB {
     publishDir "${DB_PARENT_DIR}", mode: 'copy'
 
     input:
+    path JOURNALS_TSV
     val DB_FILENAME
     val DB_PARENT_DIR
 
@@ -20,7 +53,7 @@ process CREATE_ARTICLES_DB {
 
     script:
     """
-    create_db.py --db_path "${DB_FILENAME}"
+    create_db.py --journals_tsv ${JOURNALS_TSV} --db_path "${DB_FILENAME}"
     """
 
 }
@@ -102,26 +135,25 @@ workflow {
         // TODO this process crashes, there are errors with the Docker container
         db_filename = database_path.getBaseName()
         db_parent_dir = database_path.getParent()
-        CREATE_ARTICLES_DB(db_filename, db_parent_dir)
+        CREATE_ARTICLES_DB(file(params.journal_list), db_filename, db_parent_dir)
     } else {
         journals = channel.fromQuery("SELECT name, feed_url, last_checked FROM sources", db: 'articles_db')
 
+        // Fetch articles and insert new ones with fetched=true
         FETCH_ARTICLES(journals)
+        insertNewArticles(FETCH_ARTICLES.out)
 
-        all_articles = collectAndSplitFiles(FETCH_ARTICLES.out, 'all_articles.tsv', params.outdir)
+        // Get articles that haven't been screened yet
+        unscreened_articles = getUnprocessedArticles('screened')
 
-        SCREEN_ARTICLES(all_articles, file(params.research_interests))
+        SCREEN_ARTICLES(unscreened_articles, file(params.research_interests))
+        updateArticlesFlag(SCREEN_ARTICLES.out, 'screened')
 
-        screened_articles = collectAndSplitFiles(SCREEN_ARTICLES.out, 'screened_articles.tsv', params.outdir)
+        // Get articles that haven't been prioritized yet
+        unprioritized_articles = getUnprocessedArticles('priority')
 
-        PRIORITIZE_ARTICLES(SCREEN_ARTICLES.out, file(params.research_interests))
-
-        prioritized_articles = collectAndSplitFiles(PRIORITIZE_ARTICLES.out, 'prioritized_articles.tsv', params.outdir)
-
-        // SCREEN_ARTICLES.out
-        //     .splitCsv(header: true, sep: '\t')
-        //     .map { row -> tuple(row.title, row.journal_name, row.link, row.date) }
-        //     .sqlInsert( into: 'articles', columns: 'title, journal_name, link, date', db: 'articles_db' )
+        PRIORITIZE_ARTICLES(unprioritized_articles, file(params.research_interests))
+        updateArticlesFlag(PRIORITIZE_ARTICLES.out, 'priority')
     }
 
 }

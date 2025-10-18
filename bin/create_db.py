@@ -5,9 +5,10 @@ import time
 import duckdb
 
 
-def create_journal_table(db_path: str, global_cutoff_date: str):
+def create_journal_table(journals_tsv: str, db_path: str, global_cutoff_date: str):
     logging.info("-" * 20)
     logging.info("Called create_journal_table with the following arguments:")
+    logging.info(f"journals_tsv       : {journals_tsv}")
     logging.info(f"db_path            : {db_path}")
     logging.info(f"global_cutoff_date : {global_cutoff_date}")
     logging.info("-" * 20)
@@ -23,15 +24,13 @@ def create_journal_table(db_path: str, global_cutoff_date: str):
         """)
         logging.info("✅ Done creating sources table")
 
-        # add entries
-        sources = [
-            ("Nature Genetics", "https://www.nature.com/ng.rss", global_cutoff_date),
-            (
-                "Nature Reviews Drug Discovery",
-                "https://www.nature.com/nrd.rss",
-                global_cutoff_date,
-            ),
-        ]
+        with open(journals_tsv, "r") as f:
+            sources = []
+            for line in f:
+                if line.strip() == "":
+                    continue
+                name, feed_url = line.strip().split("\t")
+                sources.append((name, feed_url, global_cutoff_date))
 
         logging.info("⌛ Began inserting journal sources...")
         con.executemany(
@@ -62,8 +61,8 @@ def create_articles_table(db_path: str):
                 title TEXT NOT NULL,
                 link TEXT NOT NULL,
                 date DATE NOT NULL,
-                reviewed BOOLEAN DEFAULT 0,
-                priority INTEGER DEFAULT 0,
+                screened BOOLEAN DEFAULT NULL,
+                priority INTEGER DEFAULT NULL,
                 FOREIGN KEY (journal_name) REFERENCES sources(name)
             )
             """)
@@ -82,9 +81,15 @@ if __name__ == "__main__":
         default="literature_agent.db",
         help="Path to the SQLite database file.",
     )
+    parser.add_argument(
+        "--journals_tsv",
+        type=str,
+        required=True,
+        help="Path to the TSV file containing journal names and RSS feed URLs.",
+    )
 
     args = parser.parse_args()
 
     global_cutoff_date = time.strftime("%Y-%m-%d")
-    create_journal_table(args.db_path, global_cutoff_date)
+    create_journal_table(args.journals_tsv, args.db_path, global_cutoff_date)
     create_articles_table(args.db_path)
