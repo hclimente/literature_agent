@@ -1,20 +1,9 @@
 #!/usr/bin/env python
 import argparse
 import logging
-from time import strptime
 
+from dateutil.parser import parse
 import feedparser
-
-
-def sanitize_text(text: str) -> str:
-    """
-    Sanitize text by escaping special characters (\", \')
-    Args:
-        text (str): The text to sanitize.
-    Returns:
-        str: The sanitized text.
-    """
-    return text.replace('"', '\\"').replace("'", "\\'")
 
 
 def fetch_rss_feed(
@@ -42,7 +31,7 @@ def fetch_rss_feed(
     logging.info(f"max_items    : {max_items}")
     logging.info("-" * 20)
 
-    cuttoff_date = strptime(cuttoff_date, "%Y-%m-%d")
+    cuttoff_date = parse(cuttoff_date, tzinfos={"UTC": 0})
 
     logging.info("⌛ Began fetching RSS feed...")
     feed = feedparser.parse(url)
@@ -54,19 +43,24 @@ def fetch_rss_feed(
     logging.info("✅ Done fetching RSS feed")
 
     logging.info("⌛ Began writing articles to TSV...")
-    with open("articles.tsv", "w") as f:
-        f.write("title\tjournal_name\tlink\tsummary\tdate\n")
-        for item in feed.entries[:max_items]:
-            item_date = strptime(item.updated, "%Y-%m-%d")
-            if item_date < cuttoff_date:
-                break
 
-            title = sanitize_text(item.title)
-            summary = sanitize_text(item.summary)
+    for i, item in enumerate(feed.entries[:max_items]):
+        with open(f"article_{i}.txt", "w") as f:
+            f.write(f"Journal: {journal_name}\n{item}")
+            # if item_date < cuttoff_date:
+            #     break
 
-            f.write(
-                f"{title}\t{journal_name}\t{item.link}\t{summary}\t{item.updated}\n"
-            )
+            # item_date = item_date.strftime('%Y-%m-%d')
+            # title = sanitize_text(item.title)
+
+            # try:
+            #     summary = sanitize_text(item.summary)
+            # except AttributeError:
+            #     summary = sanitize_text(item.content)
+
+            # f.write(
+            #     f"{title}\t{journal_name}\t{item.link}\t{summary}\t{item_date}\n"
+            # )
     logging.info("✅ Done writing articles to TSV")
 
 

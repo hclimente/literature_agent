@@ -36,7 +36,7 @@ def create_journal_table(journals_tsv: str, db_path: str, global_cutoff_date: st
         logging.info("⌛ Began inserting journal sources...")
         con.executemany(
             """
-            INSERT INTO sources (name, feed_url, last_checked)
+            INSERT OR IGNORE INTO sources (name, feed_url, last_checked)
             VALUES (?, ?, ?)
         """,
             sources,
