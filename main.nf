@@ -46,7 +46,6 @@ process FETCH_ARTICLES {
 process SAVE_ARTICLE {
 
     container 'community.wave.seqera.io/library/duckdb:1.4.1--3daff581f117ee85'
-    maxForks 1
     tag { TITLE }
 
     input:
@@ -74,12 +73,13 @@ process SAVE_ARTICLE {
 
 process EXTRACT_METADATA {
 
-    container 'community.wave.seqera.io/library/duckdb_google-genai:2de7f99e6ef8ab9a'
-    maxForks 2
+    container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
     secret 'GOOGLE_API_KEY'
 
     input:
     file ARTICLE_FILE
+    file SYSTEM_PROMPT
+    val MODEL
 
     output:
     file "metadata.tsv"
@@ -87,14 +87,16 @@ process EXTRACT_METADATA {
     script:
     """
     extract_metadata.py \
---article_file ${ARTICLE_FILE}
+--article_file ${ARTICLE_FILE} \
+--system_prompt_path ${SYSTEM_PROMPT} \
+--model ${MODEL}
     """
 
 }
 
 process SCREEN_ARTICLES {
 
-    container 'community.wave.seqera.io/library/duckdb_google-genai:2de7f99e6ef8ab9a'
+    container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
     secret 'GOOGLE_API_KEY'
     secret 'SPRINGER_META_API_KEY'
     secret 'USER_EMAIL'
@@ -102,7 +104,9 @@ process SCREEN_ARTICLES {
 
     input:
     tuple val(TITLE), val(SUMMARY), val(LINK), val(JOURNAL_NAME), val(DATE), val(DOI)
+    file SYSTEM_PROMPT
     path RESEARCH_INTERESTS_PATH
+    val MODEL
 
     output:
     tuple val(TITLE), val(SUMMARY), val(LINK), val(JOURNAL_NAME), val(DATE), val(DOI), env(SCREENING_DECISION)
@@ -117,7 +121,9 @@ process SCREEN_ARTICLES {
 --summary "${SUMMARY}" \
 --journal_name "${JOURNAL_NAME}" \
 --doi "${DOI}" \
---research_interests_path ${RESEARCH_INTERESTS_PATH}
+--system_prompt_path ${SYSTEM_PROMPT} \
+--research_interests_path ${RESEARCH_INTERESTS_PATH} \
+--model ${MODEL}
 
         SCREENING_DECISION=`cat decision.txt`
     fi
@@ -126,7 +132,7 @@ process SCREEN_ARTICLES {
 
 process PRIORITIZE_ARTICLES {
 
-    container 'community.wave.seqera.io/library/duckdb_google-genai:2de7f99e6ef8ab9a'
+    container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
     secret 'GOOGLE_API_KEY'
     secret 'SPRINGER_META_API_KEY'
     secret 'USER_EMAIL'
@@ -134,7 +140,9 @@ process PRIORITIZE_ARTICLES {
 
     input:
     tuple val(TITLE), val(SUMMARY), val(LINK), val(JOURNAL_NAME), val(DATE), val(DOI), val(SCREENING_DECISION)
+    path SYSTEM_PROMPT
     path RESEARCH_INTERESTS_PATH
+    val MODEL
 
     output:
     tuple val(TITLE), val(SUMMARY), val(LINK), val(JOURNAL_NAME), val(DATE), val(DOI), val(SCREENING_DECISION), env(PRIORITY)
@@ -149,7 +157,9 @@ process PRIORITIZE_ARTICLES {
 --summary "${SUMMARY}" \
 --journal_name "${JOURNAL_NAME}" \
 --doi "${DOI}" \
---research_interests_path ${RESEARCH_INTERESTS_PATH}
+--system_prompt_path ${SYSTEM_PROMPT} \
+--research_interests_path ${RESEARCH_INTERESTS_PATH} \
+--model ${MODEL}
 
         PRIORITY=`cat priority.txt`
     fi
@@ -170,12 +180,26 @@ workflow {
         journals = channel.fromQuery("SELECT name, feed_url, last_checked FROM sources", db: 'articles_db')
 
         FETCH_ARTICLES(journals)
-        EXTRACT_METADATA(FETCH_ARTICLES.out.flatten())
+        EXTRACT_METADATA(
+            FETCH_ARTICLES.out.flatten(),
+            file(params.metadata_extraction.system_prompt),
+            params.metadata_extraction.model
+        )
 
         articles = EXTRACT_METADATA.out |
             splitCsv(sep: '\t')
-        SCREEN_ARTICLES(articles, file(params.research_interests))
-        PRIORITIZE_ARTICLES(SCREEN_ARTICLES.out, file(params.research_interests))
+        SCREEN_ARTICLES(
+            articles,
+            file(params.screening.system_prompt),
+            file(params.research_interests),
+            params.screening.model
+        )
+        PRIORITIZE_ARTICLES(
+            SCREEN_ARTICLES.out,
+            file(params.prioritization.system_prompt),
+            file(params.research_interests),
+            params.prioritization.model
+        )
 
         SAVE_ARTICLE(PRIORITIZE_ARTICLES.out, database_path)
 

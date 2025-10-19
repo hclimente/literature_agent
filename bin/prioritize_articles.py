@@ -20,7 +20,13 @@ client = genai.Client(api_key=API_KEY)
 
 
 def prioritize_articles(
-    title: str, journal_name: str, summary: str, doi: str, research_interests_path: str
+    title: str,
+    journal_name: str,
+    summary: str,
+    doi: str,
+    system_prompt_path: str,
+    research_interests_path: str,
+    model: str,
 ):
     """
     Prioritizes articles based on user research interests.
@@ -30,7 +36,9 @@ def prioritize_articles(
         journal_name (str): The journal name of the article to screen.
         summary (str): The summary of the article to screen.
         doi (str): The DOI of the article to screen.
+        system_prompt_path (str): The path to the system prompt file.
         research_interests_path (str): The path to a text file containing the user's research interests.
+        model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
     Returns:
         None. Writes the screening decision to 'decision.txt'.
     """
@@ -40,36 +48,38 @@ def prioritize_articles(
     logging.info(f"journal_name            : {journal_name}")
     logging.info(f"summary                 : {summary}")
     logging.info(f"doi                     : {doi}")
+    logging.info(f"system_prompt_path      : {system_prompt_path}")
     logging.info(f"research_interests_path : {research_interests_path}")
+    logging.info(f"model                   : {model}")
     logging.info("-" * 20)
 
     logging.info(f"⌛ Began prioritizing article '{title}' from {journal_name}")
 
+    logging.info("Began reading system prompt...")
+    with open(system_prompt_path, "r") as f:
+        system_instruction = f.read().strip()
+    logging.info("Done reading system prompt.")
+
+    logging.info("Began reading research interests...")
     with open(research_interests_path, "r") as F:
         research_interests = F.read().strip()
+    logging.info("Done reading research interests.")
 
-    system_instruction = f"""
-You are a helpful assistant for prioritizing scientific articles. Your job is to score which articles
-are worth reading by the user using a 5-point scale, where 0 means low priority and 5 means high priority.
+    system_instruction.format(research_interests=research_interests)
+    logging.info(f"System prompt: {system_instruction}")
 
-Note that the articles have already been screened for relevance. An article receiving a 0 might still be worth
-reading given infinite time; 3 is quite generous; 5 is a must-read, urgently.
-
-Use as much information as you need from the article; retrieving additional information when needed.
-
-Here is a description of the user's interests:\n{research_interests}\n
-
-You must answer ONLY an integer between 0 and 5. No other text, punctuation, or explanation.
-
-Here is the article to prioritize:
-    """
-    prompt = (
-        f"Title: {title}\nJournal: {journal_name}\nSummary: {summary}\ndoi: {doi}\n"
-    )
+    prompt = f"""
+Here is the article to screen:
+    Title: {title}
+    Journal: {journal_name}
+    Summary: {summary}
+    doi: {doi}
+"""
+    logging.info(f"User prompt: {prompt}")
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
-        contents=f"Here is the article to screen:{prompt}",
+        model=model,
+        contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             thinking_config=types.ThinkingConfig(include_thoughts=True),
@@ -127,10 +137,22 @@ if __name__ == "__main__":
         help="The DOI of the article to screen.",
     )
     parser.add_argument(
+        "--system_prompt_path",
+        type=str,
+        required=True,
+        help="The path to the system prompt file.",
+    )
+    parser.add_argument(
         "--research_interests_path",
         type=str,
         required=True,
         help="The path to a text file containing the user's research interests.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=True,
+        help="The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
     )
 
     args = parser.parse_args()
@@ -140,5 +162,7 @@ if __name__ == "__main__":
         args.journal_name,
         args.summary,
         args.doi,
+        args.system_prompt_path,
         args.research_interests_path,
+        args.model,
     )

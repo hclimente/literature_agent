@@ -34,18 +34,44 @@ def sanitize_text(text: str) -> str:
     return text
 
 
-def extract_metadata(article_file: str):
+def validate_date(date_string, format_string="%Y-%m-%d"):
+    """
+    Checks if a string adheres to the specified date format.
+
+    Args:
+        date_string (str): The date string to check.
+        format_string (str): The expected date format (default is "%Y-%m-%d").
+    Returns:
+        None.
+    """
+    if not isinstance(date_string, str):
+        raise TypeError(f"Expected string, got {type(date_string).__name__}.")
+    try:
+        strptime(date_string, format_string)
+    except ValueError as e:
+        raise ValueError(
+            f"Date validation failed for string '{date_string}'. Reason: {e}"
+        )
+
+
+def extract_metadata(
+    article_file: str, system_prompt_path: str = None, model: str = None
+):
     """
     Extract metadata from an article using Google Gemini.
 
     Args:
         article_file (str): The path to the article file to process.
+        system_prompt_path (str, optional): The path to the system prompt file.
+        model (str, optional): The model to use for metadata extraction. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
     Returns:
         None.
     """
     logging.info("-" * 20)
     logging.info("extract_metadata called with the following arguments:")
-    logging.info(f"article_file : {article_file}")
+    logging.info(f"article_file       : {article_file}")
+    logging.info(f"system_prompt_path : {system_prompt_path}")
+    logging.info(f"model              : {model}")
     logging.info("-" * 20)
 
     logging.info("⌛ Began extracting metadata")
@@ -55,29 +81,11 @@ def extract_metadata(article_file: str):
 
     logging.info(f"Article content read:\n{lines}")
 
-    system_instruction = """
-You are a helpful assistant for that extracts metadata from academic articles.
-
-Your task is to extract the following information:
-- Title
-- Journal Name
-- Abstract/Summary
-- Date of publication, in YYYY-MM-DD format. If the day is not available, use "01" as the day.
-- URL, if possible within the journal's website
-- DOI (Digital Object Identifier). In some cases, the DOI will be available in the summary or the URL of the article. In others, you may
-need to look it up on Google Search or other academic databases.
-
-Put the metadata in a single-line, pipe-separated (PSV) string. Use the following field order:
-
-title|journal_name|summary|link|date|doi.
-
-Do not include field names or delimiters other than the single pipe |. When a field is not available, use "NULL" as the value.
-
-Example Output Format: From reference to reality: identifying noncanonical peptides|Trends in Genetics|The translation of genome...|https://www.cell.com/...|2025-08-04|10.1016/j.tig.2025.07.011
-"""
+    with open(system_prompt_path, "r") as f:
+        system_instruction = f.read()
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
+        model=model,
         contents=f"This is the article to extract the metadata from:\n{lines}",
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
@@ -92,7 +100,7 @@ Example Output Format: From reference to reality: identifying noncanonical pepti
     title, journal_name, summary, link, date, doi = metadata.split("|")
     title = sanitize_text(title)
     summary = sanitize_text(summary)
-    date = strptime(date, "%Y-%m-%d")
+    validate_date(date)
 
     with open("metadata.tsv", "w") as f:
         f.write(f"{title}\t{summary}\t{link}\t{journal_name}\t{date}\t{doi}\n")
@@ -112,7 +120,19 @@ if __name__ == "__main__":
         required=True,
         help="The path to the article file to process.",
     )
+    parser.add_argument(
+        "--system_prompt_path",
+        type=str,
+        required=False,
+        help="The path to the system prompt file.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=False,
+        help="The model to use for metadata extraction. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
+    )
 
     args = parser.parse_args()
 
-    extract_metadata(args.article_file)
+    extract_metadata(args.article_file, args.system_prompt_path, args.model)

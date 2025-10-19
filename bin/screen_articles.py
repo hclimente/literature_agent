@@ -20,7 +20,13 @@ client = genai.Client(api_key=API_KEY)
 
 
 def screen_article(
-    title: str, journal_name: str, summary: str, doi: str, research_interests_path: str
+    title: str,
+    journal_name: str,
+    summary: str,
+    doi: str,
+    system_prompt_path: str,
+    research_interests_path: str,
+    model: str,
 ):
     """
     Screens articles based on user research interests.
@@ -30,7 +36,9 @@ def screen_article(
         journal_name (str): The journal name of the article to screen.
         summary (str): The summary of the article to screen.
         doi (str): The DOI of the article to screen.
+        system_prompt_path (str): The path to the system prompt file.
         research_interests_path (str): The path to a text file containing the user's research interests.
+        model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
     Returns:
         None. Writes the screening decision to 'decision.txt'.
     """
@@ -43,27 +51,32 @@ def screen_article(
     logging.info(f"research_interests_path : {research_interests_path}")
     logging.info("-" * 20)
 
-    with open(research_interests_path, "r") as F:
-        research_interests = F.read().strip()
-
     logging.info(f"⌛ Began screening article '{title}' from {journal_name}")
 
-    system_instruction = f"""
-You are a helpful assistant for screening scientific articles. Your ONLY job is to screen which articles
-could be worth reading by the user. Since using tools incurs in costly API calls, they should be used
-only when absolutely necessary.
+    logging.info("Began reading system prompt...")
+    with open(system_prompt_path, "r") as f:
+        system_instruction = f.read().strip()
+    logging.info("Done reading system prompt.")
 
-Here is a description of the user's interests:
+    logging.info("Began reading research interests...")
+    with open(research_interests_path, "r") as F:
+        research_interests = F.read().strip()
+    logging.info("Done reading research interests.")
 
-{research_interests}
+    system_instruction.format(research_interests=research_interests)
+    logging.info(f"System prompt: {system_instruction}")
 
-You must answer ONLY 'true' (for yes) or 'no' (for false). No other text, punctuation, or explanation.
+    prompt = f"""
+Here is the article to screen:
+    Title: {title}
+    Journal: {journal_name}
+    Summary: {summary}
+    doi: {doi}
 """
-    prompt = (
-        f"Title: {title}\nJournal: {journal_name}\nSummary: {summary}\ndoi: {doi}\n"
-    )
+    logging.info(f"User prompt: {prompt}")
+
     response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
+        model=model,
         contents=f"Here is the article to screen:{prompt}",
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
@@ -122,10 +135,22 @@ if __name__ == "__main__":
         help="The DOI of the article to screen.",
     )
     parser.add_argument(
+        "--system_prompt_path",
+        type=str,
+        required=True,
+        help="The path to the system prompt file.",
+    )
+    parser.add_argument(
         "--research_interests_path",
         type=str,
         required=True,
         help="The path to a text file containing the user's research interests.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=True,
+        help="The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
     )
 
     args = parser.parse_args()
@@ -135,5 +160,7 @@ if __name__ == "__main__":
         args.journal_name,
         args.summary,
         args.doi,
+        args.system_prompt_path,
         args.research_interests_path,
+        args.model,
     )
