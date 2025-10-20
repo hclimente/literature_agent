@@ -8,3 +8,4 @@ work/
 .ruff_cache/
 .venv/
 __pycache__
+CLAUDE.md

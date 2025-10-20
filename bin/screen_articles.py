@@ -19,6 +19,43 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 
+def validate_screening_response(response_text: str) -> str:
+    """
+    Validate AI screening response. It raises an error if validation fails.
+
+    Args:
+        response_text (str): The AI response for screening decision
+
+    Returns:
+        str: "true" or "false"
+    """
+    if not response_text or not isinstance(response_text, str):
+        logging.error("❌ AI returned empty or non-string response")
+        raise
+
+    # allow for some common variations
+    decision_mappings = {
+        "true": "true",
+        "true.": "true",
+        '"true"': "true",
+        "'true'": "true",
+        "false": "false",
+        "false.": "false",
+        '"false"': "false",
+        "'false'": "false",
+    }
+
+    decision = response_text.strip().lower()
+
+    try:
+        return decision_mappings[decision]
+    except KeyError:
+        logging.error(
+            f"❌  Invalid priority: '{response_text}'. Expected 'true' or 'false'"
+        )
+        raise
+
+
 def screen_article(
     title: str,
     journal_name: str,
@@ -63,7 +100,9 @@ def screen_article(
         research_interests = F.read().strip()
     logging.info("Done reading research interests.")
 
-    system_instruction.format(research_interests=research_interests)
+    system_instruction = system_instruction.format(
+        research_interests=research_interests
+    )
     logging.info(f"System prompt: {system_instruction}")
 
     prompt = f"""
@@ -85,15 +124,11 @@ Here is the article to screen:
         ),
     )
 
-    decision = response.text.strip().lower()
+    decision = validate_screening_response(response.text)
     logging.info(f"Decision: {decision}")
 
     with open("decision.txt", "w") as f:
-        if decision not in ["true", "false"]:
-            logging.error("❌ Unexpected decision")
-            f.write("NULL")
-        else:
-            f.write(decision)
+        f.write(decision)
 
     for part in response.candidates[0].content.parts:
         if not part.text:

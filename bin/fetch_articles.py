@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import logging
+import time
 
 from dateutil.parser import parse
 import feedparser
@@ -9,7 +10,7 @@ import feedparser
 def fetch_rss_feed(
     journal_name: str,
     url: str,
-    cuttoff_date: str = "2025-10-05",
+    cutoff_date: str = "2025-10-05",
     max_items: int = 3,
 ):
     """
@@ -17,7 +18,7 @@ def fetch_rss_feed(
     Args:
         journal_name (str): The name of the journal to fetch articles from.
         url (str): The URL of the RSS feed to fetch.
-        cuttoff_date (str): The cutoff date for articles in ISO 8601 format (YYYY-MM-DD). Articles published after this date will be included. Defaults to "2025-10-12".
+        cutoff_date (str): The cutoff date for articles in ISO 8601 format (YYYY-MM-DD). Articles published after this date will be included. Defaults to "2025-10-12".
         max_items (int): The maximum number of items to return. Defaults to 3.
     Returns:
         list: A list of dictionaries, each containing 'title', 'link', 'summary', and 'date' of an article.
@@ -27,11 +28,11 @@ def fetch_rss_feed(
     logging.info("fetch_rss_feed called with the following arguments:")
     logging.info(f"journal_name : {journal_name}")
     logging.info(f"url          : {url}")
-    logging.info(f"cuttoff_date : {cuttoff_date}")
+    logging.info(f"cutoff_date  : {cutoff_date}")
     logging.info(f"max_items    : {max_items}")
     logging.info("-" * 20)
 
-    cuttoff_date = parse(cuttoff_date, tzinfos={"UTC": 0})
+    cutoff_date = parse(cutoff_date, tzinfos={"UTC": 0})
 
     logging.info("⌛ Began fetching RSS feed...")
     feed = feedparser.parse(url)
@@ -40,28 +41,63 @@ def fetch_rss_feed(
     if "bozo" in feed and feed.bozo == 1:
         logging.warning(f"⚠️ The feed at {url} may be malformed.")
         # You might still get data, but it's good to know.
+
+    logging.info(f"Found {len(feed.entries)} entries in the feed.")
     logging.info("✅ Done fetching RSS feed")
 
     logging.info("⌛ Began writing articles to TSV...")
 
+    # Parse cutoff date to naive datetime for comparison
+    cutoff_dt = parse(cutoff_date, tzinfos={"UTC": 0}).replace(tzinfo=None)
+
     for i, item in enumerate(feed.entries[:max_items]):
+        logging.info(f"⌛ Began processing item {i + 1}...")
+        logging.info(item)
+
+        # Extract publication date from various possible fields
+        item_date = None
+        for date_field in ["published_parsed", "updated_parsed", "created_parsed"]:
+            if hasattr(item, date_field) and getattr(item, date_field):
+                # Convert time.struct_time to datetime
+                item_date = parse(
+                    time.strftime("%Y-%m-%d %H:%M:%S", getattr(item, date_field))
+                )
+                break
+
+        # Fallback to string date fields
+        if not item_date:
+            for date_field in ["published", "updated", "created"]:
+                if hasattr(item, date_field) and getattr(item, date_field):
+                    try:
+                        item_date = parse(getattr(item, date_field), tzinfos={"UTC": 0})
+                        break
+                    except (ValueError, TypeError):
+                        continue
+
+        # Skip if we can't parse the date
+        if not item_date:
+            logging.warning("⚠️ Skipping: could not parse date.")
+            continue
+
+        # Convert to naive datetime for comparison (removes timezone info)
+        item_date_naive = item_date.replace(tzinfo=None)
+
+        # Filter by date
+        if item_date_naive < cutoff_dt:
+            logging.warning(
+                f"⚠️ Skipping: article published before cutoff date ({item_date_naive})."
+            )
+            continue
+
         with open(f"article_{i}.txt", "w") as f:
-            f.write(f"Journal: {journal_name}\n{item}")
-            # if item_date < cuttoff_date:
-            #     break
+            f.write(f"Journal: {journal_name}\n")
+            f.write(f"URL: {item.link}\n")
+            f.write(f"Date: {item_date_naive.date().isoformat()}\n")
+            f.write(f"{item}")
 
-            # item_date = item_date.strftime('%Y-%m-%d')
-            # title = sanitize_text(item.title)
+        logging.info(f"✅ Done processing item {i}.")
 
-            # try:
-            #     summary = sanitize_text(item.summary)
-            # except AttributeError:
-            #     summary = sanitize_text(item.content)
-
-            # f.write(
-            #     f"{title}\t{journal_name}\t{item.link}\t{summary}\t{item_date}\n"
-            # )
-    logging.info("✅ Done writing articles to TSV")
+    logging.info("✅ Done writing articles to TSV.")
 
 
 if __name__ == "__main__":
@@ -95,6 +131,6 @@ if __name__ == "__main__":
     fetch_rss_feed(
         journal_name=args.journal_name,
         url=args.feed_url,
-        cuttoff_date=args.cutoff_date,
+        cutoff_date=args.cutoff_date,
         max_items=args.max_items,
     )

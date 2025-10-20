@@ -19,6 +19,47 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 
+def validate_priority_response(response_text: str) -> str:
+    """
+    Validate AI prioritization response. It raises an error if validation fails.
+
+    Args:
+        response_text (str): The AI response for priority decision
+
+    Returns:
+        str | None: "low", "medium", or "high" if valid, None if invalid
+    """
+    if not response_text or not isinstance(response_text, str):
+        logging.error("❌ AI returned empty or non-string response")
+        raise
+
+    # allow for some common variations
+    priority_mappings = {
+        "low": "low",
+        "low.": "low",
+        '"low"': "low",
+        "'low'": "low",
+        "medium": "medium",
+        "medium.": "medium",
+        '"medium"': "medium",
+        "'medium'": "medium",
+        "high": "high",
+        "high.": "high",
+        '"high"': "high",
+        "'high'": "high",
+    }
+
+    priority = response_text.strip().lower()
+
+    try:
+        return priority_mappings[priority]
+    except KeyError:
+        logging.error(
+            f"❌  Invalid priority: '{response_text}'. Expected 'low', 'medium', or 'high'"
+        )
+        raise
+
+
 def prioritize_articles(
     title: str,
     journal_name: str,
@@ -65,7 +106,9 @@ def prioritize_articles(
         research_interests = F.read().strip()
     logging.info("Done reading research interests.")
 
-    system_instruction.format(research_interests=research_interests)
+    system_instruction = system_instruction.format(
+        research_interests=research_interests
+    )
     logging.info(f"System prompt: {system_instruction}")
 
     prompt = f"""
@@ -87,15 +130,11 @@ Here is the article to screen:
         ),
     )
 
-    decision = response.text.strip().lower()
-    logging.info(f"Decision: {decision}")
+    priority = validate_priority_response(response.text)
+    logging.info(f"Priority: {priority}")
 
     with open("priority.txt", "w") as f:
-        if decision not in [str(x) for x in range(0, 6)]:
-            logging.error("❌ Unexpected decision")
-            f.write("NULL")
-        else:
-            f.write(decision)
+        f.write(priority)
 
     for part in response.candidates[0].content.parts:
         if not part.text:

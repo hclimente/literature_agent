@@ -53,6 +53,7 @@ def create_articles_table(db_path: str):
     with duckdb.connect(db_path) as con:
         logging.info("⌛ Began creating articles table...")
         con.execute("CREATE SEQUENCE article_id_seq START 1;")
+        con.execute("CREATE TYPE priority_level AS ENUM ('low', 'medium', 'high');")
 
         # create table to store articles
         con.execute("""
@@ -65,9 +66,9 @@ def create_articles_table(db_path: str):
                 date DATE NOT NULL,
                 doi TEXT DEFAULT NULL,
                 screened BOOLEAN DEFAULT NULL,
-                priority INTEGER DEFAULT NULL,
+                priority priority_level DEFAULT NULL,
                 FOREIGN KEY (journal_name) REFERENCES sources(name),
-                PRIMARY KEY (title, journal_name)
+                PRIMARY KEY (link)
             )
             """)
         logging.info("✅ Done creating articles table")

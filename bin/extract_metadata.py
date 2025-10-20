@@ -2,7 +2,7 @@
 import argparse
 import logging
 import os
-from time import strptime
+import re
 
 from google import genai
 from google.genai import types
@@ -34,24 +34,45 @@ def sanitize_text(text: str) -> str:
     return text
 
 
-def validate_date(date_string, format_string="%Y-%m-%d"):
+def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
     """
-    Checks if a string adheres to the specified date format.
+    Validate and parse AI metadata response. It raises an error if validation fails.
 
     Args:
-        date_string (str): The date string to check.
-        format_string (str): The expected date format (default is "%Y-%m-%d").
+        metadata (str): The AI response containing pipe-separated metadata
+
     Returns:
-        None.
+        tuple[str, str, str]: (title, summary, doi)
     """
-    if not isinstance(date_string, str):
-        raise TypeError(f"Expected string, got {type(date_string).__name__}.")
-    try:
-        strptime(date_string, format_string)
-    except ValueError as e:
-        raise ValueError(
-            f"Date validation failed for string '{date_string}'. Reason: {e}"
-        )
+    if not metadata or not isinstance(metadata, str):
+        logging.error("❌ AI returned empty or non-string response")
+        raise
+
+    parts = metadata.strip().split("|")
+    if len(parts) != 3:
+        logging.error(f"Expected 3 parts separated by |, got {len(parts)}: {metadata}")
+        raise
+
+    title, summary, doi = parts
+    title, summary, doi = title.strip(), summary.strip(), doi.strip()
+
+    # Validate individual fields
+    if not title:
+        logging.error("❌ Title cannot be empty")
+        raise
+
+    if not summary:
+        logging.error("❌ Summary cannot be empty")
+        raise
+
+    # Validate DOI format if not NULL
+    if doi != "NULL":
+        # Basic DOI format: 10.xxxx/yyyyy
+        if not re.match(r"^10\.\d+/.+", doi):
+            logging.warning(f"⚠️ Invalid DOI format: '{doi}', setting to NULL")
+            doi = "NULL"
+
+    return title, summary, doi
 
 
 def extract_metadata(
@@ -77,16 +98,30 @@ def extract_metadata(
     logging.info("⌛ Began extracting metadata")
 
     with open(article_file, "r") as f:
-        lines = f.readlines()
+        raw_metadata = f.read()
 
-    logging.info(f"Article content read:\n{lines}")
+    lines = raw_metadata.strip().split("\n")
+    journal_name = ""
+    link = ""
+    date = ""
+
+    for line in lines:
+        if line.startswith("Journal: "):
+            journal_name = line.replace("Journal: ", "").strip()
+        elif line.startswith("URL: "):
+            link = line.replace("URL: ", "").strip()
+        elif line.startswith("Date: "):
+            date = line.replace("Date: ", "").strip()
+
+    logging.info(f"Article raw medatada:\n{raw_metadata}")
+    logging.info(f"Extracted - Journal: {journal_name}, URL: {link}, Date: {date}")
 
     with open(system_prompt_path, "r") as f:
         system_instruction = f.read()
 
     response = client.models.generate_content(
         model=model,
-        contents=f"This is the article to extract the metadata from:\n{lines}",
+        contents=f"This is the article to extract the metadata from:\n{raw_metadata}",
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             thinking_config=types.ThinkingConfig(include_thoughts=False),
@@ -97,10 +132,9 @@ def extract_metadata(
     metadata = response.text.strip()
     logging.info(f"Extracted Metadata: {metadata}")
 
-    title, journal_name, summary, link, date, doi = metadata.split("|")
+    title, summary, doi = validate_metadata_response(metadata)
     title = sanitize_text(title)
     summary = sanitize_text(summary)
-    validate_date(date)
 
     with open("metadata.tsv", "w") as f:
         f.write(f"{title}\t{summary}\t{link}\t{journal_name}\t{date}\t{doi}\n")

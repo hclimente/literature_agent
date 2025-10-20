@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import logging
 
 import duckdb
 
@@ -33,30 +34,55 @@ def insert_article(
         None
     """
 
+    # Convert "NULL" strings to actual NULL values
     doi = doi if doi != "NULL" else None
-    screening_decision = screening_decision if screening_decision != "NULL" else None
-    priority = priority if priority != "NULL" else None
+
+    # Convert screening decision string to boolean or NULL
+    if screening_decision == "NULL":
+        screened_bool = None
+    elif screening_decision == "true":
+        screened_bool = True
+    elif screening_decision == "false":
+        screened_bool = False
+    else:
+        logging.error(f"❌ Unexpected screening_decision value: {screening_decision}.")
+        raise ValueError(f"Unexpected screening_decision value: {screening_decision}.")
+
+    # Convert priority string to enum value or NULL
+    priority_value = priority if priority != "NULL" else None
+    if priority_value and priority_value not in ["low", "medium", "high"]:
+        logging.error(f"❌ Invalid priority value: {priority_value}.")
+        raise ValueError(f"Invalid priority value: {priority_value}.")
+
+    logging.info(f"Inserting article: {title[:50]}...")
 
     with duckdb.connect(db_path) as con:
-        con.execute(
-            """
-            INSERT OR IGNORE INTO articles (title, summary, link, journal_name, date, doi, screened, priority)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                title,
-                summary,
-                link,
-                journal_name,
-                date,
-                doi,
-                screening_decision,
-                priority,
-            ),
-        )
+        try:
+            con.execute(
+                """
+                INSERT OR IGNORE INTO articles (title, summary, link, journal_name, date, doi, screened, priority)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    title,
+                    summary,
+                    link,
+                    journal_name,
+                    date,
+                    doi,
+                    screened_bool,
+                    priority_value,
+                ),
+            )
+            logging.info("✅ Article inserted successfully")
+        except Exception as e:
+            logging.error(f"❌ Failed to insert article: {e}")
+            raise
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
     parser = argparse.ArgumentParser(
         description="Insert articles from a TSV file into a DuckDB database."
     )
