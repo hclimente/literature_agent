@@ -30,7 +30,9 @@ def validate_screening_response(response_text: str) -> str:
     Returns:
         str: "true" or "false"
     """
-    response = validate_json_response(response_text, "screening")
+    response = validate_json_response(
+        response_text, "screening", ["decision", "reasoning"]
+    )
 
     decision = response["decision"]
 

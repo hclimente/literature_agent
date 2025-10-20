@@ -2,7 +2,9 @@ import json
 import logging
 
 
-def validate_json_response(response_text: str, stage: str) -> dict:
+def validate_json_response(
+    response_text: str, stage: str, expected_fields: list = []
+) -> dict:
     """
     Validate that the response is valid JSON.
 
@@ -35,11 +37,11 @@ def validate_json_response(response_text: str, stage: str) -> dict:
             response,
             "Response should be a dictionary.",
         )
-    if len(response) != 2 or response.keys() != {"decision", "reasoning"}:
+    if response.keys() != set(expected_fields):
         raise ValidationError(
             stage,
             response,
-            "Response should contain exactly 'decision' and 'reasoning' keys.",
+            f"Response fields do not match expected fields: {expected_fields}.",
         )
 
     return response

@@ -7,7 +7,7 @@ import re
 from google import genai
 from google.genai import types
 
-from utils import ValidationError
+from utils import validate_json_response, ValidationError
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -46,19 +46,16 @@ def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
     Returns:
         tuple[str, str, str]: (title, summary, doi)
     """
+    response = validate_json_response(
+        metadata, "metadata_extraction", ["title", "summary", "doi"]
+    )
+
+    title = response["title"].strip()
+    summary = response["summary"].strip()
+    doi = response["doi"].strip()
+
     if not metadata or not isinstance(metadata, str):
         raise ValidationError("metadata", metadata, "Empty or non-string response.")
-
-    parts = metadata.strip().split("|")
-    if len(parts) != 3:
-        raise ValidationError(
-            "metadata",
-            metadata,
-            f"Incorrect number of fields. Expected 3, got {len(parts)}.",
-        )
-
-    title, summary, doi = parts
-    title, summary, doi = title.strip(), summary.strip(), doi.strip()
 
     # Validate individual fields
     if not title:
@@ -69,10 +66,8 @@ def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
 
     # Validate DOI format if not NULL
     if doi != "NULL":
-        # Basic DOI format: 10.xxxx/yyyyy
         if not re.match(r"^10\.\d{4,}/[-._;()/:\w\[\]]+$", doi):
-            logging.warning(f"⚠️ Invalid DOI format: '{doi}', setting to NULL.")
-            doi = "NULL"
+            raise ValidationError("doi", doi, "Invalid DOI format.")
 
     return title, summary, doi
 

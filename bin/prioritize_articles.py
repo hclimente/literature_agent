@@ -31,7 +31,9 @@ def validate_priority_response(response_text: str) -> str:
         str | None: "low", "medium", or "high" if valid, None if invalid
     """
 
-    response = validate_json_response(response_text, "prioritization")
+    response = validate_json_response(
+        response_text, "prioritization", ["decision", "reasoning"]
+    )
     priority = response["decision"]
 
     if not priority or not isinstance(priority, str):
