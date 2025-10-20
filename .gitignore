@@ -1,4 +1,4 @@
-*.db
+*.duckdb
 
 # nextflow files
 .nextflow*
@@ -8,3 +8,4 @@ work/
 .ruff_cache/
 .venv/
 __pycache__
+CLAUDE.md

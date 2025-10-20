@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
+from utils import validate_json_response, ValidationError
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -19,95 +20,169 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 
-def prioritize_articles(
-    in_articles_tsv: str, user_prompt_path: str, out_articles_tsv: str
-):
+def validate_priority_response(response_text: str) -> str:
     """
-    Screens articles based on user research interests.
+    Validate AI prioritization response. It raises an error if validation fails.
 
     Args:
-        in_articles_tsv (str): Path to the input TSV file containing articles to screen.
-        user_prompt_path (str): Path to the text file containing the user's research interests.
-        out_articles_tsv (str): Path to the output TSV file to store the screened articles
+        response_text (str): The AI response for priority decision
+
     Returns:
-        None
+        str | None: "low", "medium", or "high" if valid, None if invalid
+    """
+
+    response = validate_json_response(response_text, "prioritization")
+    priority = response["decision"]
+
+    if not priority or not isinstance(priority, str):
+        raise ValidationError(
+            "prioritization", priority, "Empty or non-string response."
+        )
+
+    # allow for some common variations
+    priority_mappings = {
+        "low": "low",
+        "low.": "low",
+        '"low"': "low",
+        "'low'": "low",
+        "medium": "medium",
+        "medium.": "medium",
+        '"medium"': "medium",
+        "'medium'": "medium",
+        "high": "high",
+        "high.": "high",
+        '"high"': "high",
+        "'high'": "high",
+    }
+
+    priority = priority.strip().lower()
+
+    try:
+        return priority_mappings[priority]
+    except KeyError:
+        raise ValidationError("prioritization", priority, "Invalid priority value.")
+
+
+def prioritize_articles(
+    title: str,
+    journal_name: str,
+    summary: str,
+    doi: str,
+    system_prompt_path: str,
+    research_interests_path: str,
+    model: str,
+):
+    """
+    Prioritizes articles based on user research interests.
+
+    Args:
+        title (str): The title of the article to screen.
+        journal_name (str): The journal name of the article to screen.
+        summary (str): The summary of the article to screen.
+        doi (str): The DOI of the article to screen.
+        system_prompt_path (str): The path to the system prompt file.
+        research_interests_path (str): The path to a text file containing the user's research interests.
+        model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
+    Returns:
+        None. Writes the screening decision to 'decision.txt'.
     """
     logging.info("-" * 20)
-    logging.info("prioritize_articles called with the following arguments:")
-    logging.info(f"in_articles_tsv  : {in_articles_tsv}")
-    logging.info(f"user_prompt_path : {user_prompt_path}")
-    logging.info(f"out_articles_tsv : {out_articles_tsv}")
+    logging.info("screen_article called with the following arguments:")
+    logging.info(f"title                   : {title}")
+    logging.info(f"journal_name            : {journal_name}")
+    logging.info(f"summary                 : {summary}")
+    logging.info(f"doi                     : {doi}")
+    logging.info(f"system_prompt_path      : {system_prompt_path}")
+    logging.info(f"research_interests_path : {research_interests_path}")
+    logging.info(f"model                   : {model}")
     logging.info("-" * 20)
 
-    with open(user_prompt_path, "r") as F:
-        user_prompt = F.read().strip()
+    logging.info(f"⌛ Began prioritizing article '{title}' from {journal_name}")
 
-    with open(in_articles_tsv, "r") as F_IN, open(out_articles_tsv, "w") as F_OUT:
-        F_IN.readline()  # skip header
-        F_OUT.write("title\tjournal_name\tlink\tdate\n")
+    logging.info("Began reading system prompt...")
+    with open(system_prompt_path, "r") as f:
+        system_instruction = f.read().strip()
+    logging.info("Done reading system prompt.")
 
-        for line in F_IN:
-            line = line.strip()
+    logging.info("Began reading research interests...")
+    with open(research_interests_path, "r") as F:
+        research_interests = F.read().strip()
+    logging.info("Done reading research interests.")
 
-            if not line:
-                continue
+    system_instruction = system_instruction.format(
+        research_interests=research_interests
+    )
+    logging.info(f"System prompt: {system_instruction}")
 
-            title, journal_name, link, _ = line.split("\t")
+    prompt = f"""
+Here is the article to screen:
+    Title: {title}
+    Journal: {journal_name}
+    Summary: {summary}
+    doi: {doi}
+"""
+    logging.info(f"User prompt: {prompt}")
 
-            logging.info(f"⌛ Began prioritizing article '{title}' from {journal_name}")
+    response = client.models.generate_content(
+        model=model,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            thinking_config=types.ThinkingConfig(include_thoughts=True),
+            tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
+        ),
+    )
 
-            prompt = f"Title: {title}\nJournal: {journal_name}\nURL: {link}\n"
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=f"""
-You are a helpful assistant for prioritizing scientific articles. Your job is to score which articles
-are worth reading by the user using a 5-point scale, where 0 means low priority and 5 means high priority.
+    priority = validate_priority_response(response.text)
+    logging.info(f"Priority: {priority}")
 
-Note that the articles have already been screened for relevance. An article receiving a 0 might still be worth
-reading given infinite time; 3 is quite generous; 5 is a must-read, urgently.
+    with open("priority.txt", "w") as f:
+        f.write(priority)
 
-Use as much information as you need from the article; retrieving additional information when needed.
+    for part in response.candidates[0].content.parts:
+        if not part.text:
+            continue
+        if part.thought:
+            logging.info(f"Thought: {part.text}")
 
-Here is a description of the user's interests:\n{user_prompt}\n
-
-You must answer ONLY an integer between 0 and 5. No other text, punctuation, or explanation.
-
-Here is the article to prioritize:\n{prompt}"
-                """,
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(include_thoughts=True),
-                    tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
-                ),
-            )
-
-            decision = response.text.strip().lower()
-            logging.info(f"Decision: {decision}")
-
-            if decision not in [str(x) for x in range(0, 6)]:
-                logging.error("❌ Unexpected decision")
-            else:
-                F_OUT.write(f"{title}\t{journal_name}\t{decision}\n")
-
-            for part in response.candidates[0].content.parts:
-                if not part.text:
-                    continue
-                if part.thought:
-                    logging.info(f"Thought: {part.text}")
-
-            logging.info(f"✅ Done prioritizing article '{title}' from {journal_name}")
+    logging.info(f"✅ Done prioritizing article '{title}' from {journal_name}")
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(
-        description="Fetch articles from RSS feeds and store them in a database."
+        description="Prioritize articles based on user research interests."
     )
     parser.add_argument(
-        "--in_articles_tsv",
+        "--title",
         type=str,
         required=True,
-        help="The path to the input TSV file containing the articles to prioritize.",
+        help="The title of the article to screen.",
+    )
+    parser.add_argument(
+        "--journal_name",
+        type=str,
+        required=True,
+        help="The journal name of the article to screen.",
+    )
+    parser.add_argument(
+        "--summary",
+        type=str,
+        required=True,
+        help="The summary of the article to screen.",
+    )
+    parser.add_argument(
+        "--doi",
+        type=str,
+        required=True,
+        help="The DOI of the article to screen.",
+    )
+    parser.add_argument(
+        "--system_prompt_path",
+        type=str,
+        required=True,
+        help="The path to the system prompt file.",
     )
     parser.add_argument(
         "--research_interests_path",
@@ -116,14 +191,20 @@ if __name__ == "__main__":
         help="The path to a text file containing the user's research interests.",
     )
     parser.add_argument(
-        "--out_articles_tsv",
+        "--model",
         type=str,
         required=True,
-        help="The path to the output TSV file to store the article priorities.",
+        help="The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
     )
 
     args = parser.parse_args()
 
     prioritize_articles(
-        args.in_articles_tsv, args.research_interests_path, args.out_articles_tsv
+        args.title,
+        args.journal_name,
+        args.summary,
+        args.doi,
+        args.system_prompt_path,
+        args.research_interests_path,
+        args.model,
     )
