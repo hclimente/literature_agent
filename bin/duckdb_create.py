@@ -25,6 +25,7 @@ def create_journal_table(journals_tsv: str, db_path: str, global_cutoff_date: st
         logging.info("✅ Done creating sources table")
 
         with open(journals_tsv, "r") as f:
+            f.readline()  # skip header
             sources = []
             for line in f:
                 if line.strip() == "":
