@@ -25,8 +25,8 @@ nextflow secrets set GOOGLE_API_KEY "<YOUR_GOOGLE_AI_STUDIO_KEY>"
 
 ## Quick start
 
-Once the pre-requisites are satisfied, simply run:
+Adjust the journals you want to monitor and your research interests. See examples [here](config/journals.tsv) and [here](config/research_interests.md), respectively. Then, simply run:
 
 ```bash
-nextflow run hclimente/literature_agent
+nextflow run hclimente/literature_agent --journal_list <your_journals.tsv> --research_interests <your_interests.md>
 ```

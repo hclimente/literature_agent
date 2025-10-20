@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
+from utils import validate_json_response, ValidationError
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -19,87 +20,174 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 
-def screen_articles(in_articles_tsv: str, user_prompt_path: str, out_articles_tsv: str):
+def validate_screening_response(response_text: str) -> str:
+    """
+    Validate AI screening response. It raises an error if validation fails.
+
+    Args:
+        response_text (str): The AI response for screening decision
+
+    Returns:
+        str: "true" or "false"
+    """
+    response = validate_json_response(response_text, "screening")
+
+    decision = response["decision"]
+
+    if isinstance(decision, bool):
+        decision = "true" if decision else "false"
+    else:
+        if not isinstance(decision, str):
+            raise ValidationError(
+                "screening",
+                decision,
+                "Screening decision should be a string.",
+            )
+
+        # allow for some common variations
+        decision_mappings = {
+            "true": "true",
+            "true.": "true",
+            '"true"': "true",
+            "'true'": "true",
+            "false": "false",
+            "false.": "false",
+            '"false"': "false",
+            "'false'": "false",
+        }
+
+        decision = response_text.strip().lower()
+
+        try:
+            decision = decision_mappings[decision]
+        except KeyError:
+            raise ValidationError(
+                "screening",
+                decision,
+                "Invalid screening value. Expected 'true' or 'false'.",
+            )
+
+    return decision
+
+
+def screen_article(
+    title: str,
+    journal_name: str,
+    summary: str,
+    doi: str,
+    system_prompt_path: str,
+    research_interests_path: str,
+    model: str,
+):
     """
     Screens articles based on user research interests.
 
     Args:
-        in_articles_tsv (str): Path to the input TSV file containing articles to screen.
-        user_prompt_path (str): Path to the text file containing the user's research interests.
-        out_articles_tsv (str): Path to the output TSV file to store the screened articles
+        title (str): The title of the article to screen.
+        journal_name (str): The journal name of the article to screen.
+        summary (str): The summary of the article to screen.
+        doi (str): The DOI of the article to screen.
+        system_prompt_path (str): The path to the system prompt file.
+        research_interests_path (str): The path to a text file containing the user's research interests.
+        model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
     Returns:
-        None
+        None. Writes the screening decision to 'decision.txt'.
     """
     logging.info("-" * 20)
-    logging.info("screen_articles called with the following arguments:")
-    logging.info(f"in_articles_tsv  : {in_articles_tsv}")
-    logging.info(f"user_prompt_path : {user_prompt_path}")
-    logging.info(f"out_articles_tsv : {out_articles_tsv}")
+    logging.info("screen_article called with the following arguments:")
+    logging.info(f"title                   : {title}")
+    logging.info(f"journal_name            : {journal_name}")
+    logging.info(f"summary                 : {summary}")
+    logging.info(f"doi                     : {doi}")
+    logging.info(f"research_interests_path : {research_interests_path}")
     logging.info("-" * 20)
 
-    with open(user_prompt_path, "r") as F:
-        user_prompt = F.read().strip()
+    logging.info(f"⌛ Began screening article '{title}' from {journal_name}")
 
-    with open(in_articles_tsv, "r") as F_IN, open(out_articles_tsv, "w") as F_OUT:
-        F_OUT.write("title\tjournal_name\tlink\tdate\n")
+    logging.info("Began reading system prompt...")
+    with open(system_prompt_path, "r") as f:
+        system_instruction = f.read().strip()
+    logging.info("Done reading system prompt.")
 
-        for line in F_IN:
-            title, journal_name, link, summary, date = line.strip().split("\t")
+    logging.info("Began reading research interests...")
+    with open(research_interests_path, "r") as F:
+        research_interests = F.read().strip()
+    logging.info("Done reading research interests.")
 
-            logging.info(f"⌛ Began screening article '{title}' from {journal_name}")
+    system_instruction = system_instruction.format(
+        research_interests=research_interests
+    )
+    logging.info(f"System prompt: {system_instruction}")
 
-            prompt = f"Title: {title}\nJournal: {journal_name}\nSummary: {summary}\nURL: {link}\n"
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=f"""
-You are a helpful assistant for screening scientific articles. Your ONLY job is to screen which articles
-could be worth reading by the user. Since using tools incurs in costly API calls, they should be used
-only when absolutely necessary.
-
-Here is a description of the user's interests:
-
-{user_prompt}
-
-You must answer ONLY 'yes' or 'no'. No other text, punctuation, or explanation.
-
+    prompt = f"""
 Here is the article to screen:
+    Title: {title}
+    Journal: {journal_name}
+    Summary: {summary}
+    doi: {doi}
+"""
+    logging.info(f"User prompt: {prompt}")
 
-{prompt}
-                """,
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(include_thoughts=True),
-                    tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
-                ),
-            )
+    response = client.models.generate_content(
+        model=model,
+        contents=f"Here is the article to screen:{prompt}",
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            thinking_config=types.ThinkingConfig(include_thoughts=True),
+            tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
+        ),
+    )
 
-            decision = response.text.strip().lower()
-            logging.info(f"Decision: {decision}")
+    decision = validate_screening_response(response.text)
+    logging.info(f"Decision: {decision}")
 
-            if decision not in ["yes", "no"]:
-                logging.error("❌ Unexpected decision")
-            elif decision == "yes":
-                F_OUT.write(f"{title}\t{journal_name}\t{link}\t{date}\n")
+    with open("decision.txt", "w") as f:
+        f.write(decision)
 
-            for part in response.candidates[0].content.parts:
-                if not part.text:
-                    continue
-                if part.thought:
-                    logging.info(f"Thought: {part.text}")
+    for part in response.candidates[0].content.parts:
+        if not part.text:
+            continue
+        if part.thought:
+            logging.info(f"Thought: {part.text}")
 
-            logging.info(f"✅ Done screening article '{title}' from {journal_name}")
+    logging.info(f"✅ Done screening article '{title}' from {journal_name}")
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(
-        description="Fetch articles from RSS feeds and store them in a database."
+        description="Screen articles based on user research interests."
     )
     parser.add_argument(
-        "--in_articles_tsv",
+        "--title",
         type=str,
         required=True,
-        help="The path to the input TSV file containing the articles to screen.",
+        help="The title of the article to screen.",
+    )
+    parser.add_argument(
+        "--journal_name",
+        type=str,
+        required=True,
+        help="The journal name of the article to screen.",
+    )
+    parser.add_argument(
+        "--summary",
+        type=str,
+        required=True,
+        help="The summary of the article to screen.",
+    )
+    parser.add_argument(
+        "--doi",
+        type=str,
+        required=True,
+        help="The DOI of the article to screen.",
+    )
+    parser.add_argument(
+        "--system_prompt_path",
+        type=str,
+        required=True,
+        help="The path to the system prompt file.",
     )
     parser.add_argument(
         "--research_interests_path",
@@ -108,14 +196,20 @@ if __name__ == "__main__":
         help="The path to a text file containing the user's research interests.",
     )
     parser.add_argument(
-        "--out_articles_tsv",
+        "--model",
         type=str,
         required=True,
-        help="The path to the output TSV file to store the screened articles.",
+        help="The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
     )
 
     args = parser.parse_args()
 
-    screen_articles(
-        args.in_articles_tsv, args.research_interests_path, args.out_articles_tsv
+    screen_article(
+        args.title,
+        args.journal_name,
+        args.summary,
+        args.doi,
+        args.system_prompt_path,
+        args.research_interests_path,
+        args.model,
     )
