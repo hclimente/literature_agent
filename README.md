@@ -1,5 +1,7 @@
 # Literature agent
 
+An agentic-workflow to assist researchers in staying up-to-date with literature by leveraging LLMs and tools to screen and prioritize scientific articles.
+
 ## Pre-requisites
 
 - [Nextflow 25.04](https://www.nextflow.io/)
