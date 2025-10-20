@@ -7,7 +7,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import ValidationError
+from utils import validate_json_response, ValidationError
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -30,33 +30,44 @@ def validate_screening_response(response_text: str) -> str:
     Returns:
         str: "true" or "false"
     """
-    if not response_text or not isinstance(response_text, str):
-        raise ValidationError(
-            "screening", response_text, "Empty or non-string response."
-        )
+    response = validate_json_response(response_text, "screening")
 
-    # allow for some common variations
-    decision_mappings = {
-        "true": "true",
-        "true.": "true",
-        '"true"': "true",
-        "'true'": "true",
-        "false": "false",
-        "false.": "false",
-        '"false"': "false",
-        "'false'": "false",
-    }
+    decision = response["decision"]
 
-    decision = response_text.strip().lower()
+    if isinstance(decision, bool):
+        decision = "true" if decision else "false"
+    else:
+        if not isinstance(decision, str):
+            raise ValidationError(
+                "screening",
+                decision,
+                "Screening decision should be a string.",
+            )
 
-    try:
-        return decision_mappings[decision]
-    except KeyError:
-        raise ValidationError(
-            "screening",
-            decision,
-            "Invalid screening value. Expected 'true' or 'false'.",
-        )
+        # allow for some common variations
+        decision_mappings = {
+            "true": "true",
+            "true.": "true",
+            '"true"': "true",
+            "'true'": "true",
+            "false": "false",
+            "false.": "false",
+            '"false"': "false",
+            "'false'": "false",
+        }
+
+        decision = response_text.strip().lower()
+
+        try:
+            decision = decision_mappings[decision]
+        except KeyError:
+            raise ValidationError(
+                "screening",
+                decision,
+                "Invalid screening value. Expected 'true' or 'false'.",
+            )
+
+    return decision
 
 
 def screen_article(

@@ -32,7 +32,9 @@ def fetch_rss_feed(
     logging.info(f"max_items    : {max_items}")
     logging.info("-" * 20)
 
+    # Parse cutoff date to naive datetime for comparison
     cutoff_date = parse(cutoff_date, tzinfos={"UTC": 0})
+    cutoff_date = cutoff_date.replace(tzinfo=None)
 
     logging.info("⌛ Began fetching RSS feed...")
     feed = feedparser.parse(url)
@@ -46,9 +48,6 @@ def fetch_rss_feed(
     logging.info("✅ Done fetching RSS feed")
 
     logging.info("⌛ Began writing articles to TSV...")
-
-    # Parse cutoff date to naive datetime for comparison
-    cutoff_dt = parse(cutoff_date, tzinfos={"UTC": 0}).replace(tzinfo=None)
 
     for i, item in enumerate(feed.entries[:max_items]):
         logging.info(f"⌛ Began processing item {i + 1}...")
@@ -83,7 +82,7 @@ def fetch_rss_feed(
         item_date_naive = item_date.replace(tzinfo=None)
 
         # Filter by date
-        if item_date_naive < cutoff_dt:
+        if item_date_naive < cutoff_date:
             logging.warning(
                 f"⚠️ Skipping: article published before cutoff date ({item_date_naive})."
             )

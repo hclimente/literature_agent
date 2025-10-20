@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import logging
-import time
 
 import duckdb
 
@@ -92,9 +91,14 @@ if __name__ == "__main__":
         required=True,
         help="Path to the TSV file containing journal names and RSS feed URLs.",
     )
+    parser.add_argument(
+        "--global_cutoff_date",
+        type=str,
+        default=None,
+        help="Global cutoff date for articles in ISO 8601 format (YYYY-MM-DD). If not provided, uses the current date.",
+    )
 
     args = parser.parse_args()
 
-    global_cutoff_date = time.strftime("%Y-%m-%d")
-    create_journal_table(args.journals_tsv, args.db_path, global_cutoff_date)
+    create_journal_table(args.journals_tsv, args.db_path, args.global_cutoff_date)
     create_articles_table(args.db_path)

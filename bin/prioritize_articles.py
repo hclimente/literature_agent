@@ -7,7 +7,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import ValidationError
+from utils import validate_json_response, ValidationError
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -30,9 +30,13 @@ def validate_priority_response(response_text: str) -> str:
     Returns:
         str | None: "low", "medium", or "high" if valid, None if invalid
     """
-    if not response_text or not isinstance(response_text, str):
+
+    response = validate_json_response(response_text, "prioritization")
+    priority = response["decision"]
+
+    if not priority or not isinstance(priority, str):
         raise ValidationError(
-            "priority", response_text, "Empty or non-string response."
+            "prioritization", priority, "Empty or non-string response."
         )
 
     # allow for some common variations
@@ -51,12 +55,12 @@ def validate_priority_response(response_text: str) -> str:
         "'high'": "high",
     }
 
-    priority = response_text.strip().lower()
+    priority = priority.strip().lower()
 
     try:
         return priority_mappings[priority]
     except KeyError:
-        raise ValidationError("priority", priority, "Invalid priority value.")
+        raise ValidationError("prioritization", priority, "Invalid priority value.")
 
 
 def prioritize_articles(

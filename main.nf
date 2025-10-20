@@ -17,7 +17,8 @@ process CREATE_ARTICLES_DB {
     """
     duckdb_create.py \
 --journals_tsv ${JOURNALS_TSV} \
---db_path ${DB_FILENAME}
+--db_path ${DB_FILENAME} \
+--global_cutoff_date "2025-10-01"
     """
 
 }
@@ -32,7 +33,7 @@ process FETCH_ARTICLES {
     val MAX_ITEMS
 
     output:
-    path "article_*.txt"
+    path "article_*.txt", optional: true
 
     script:
     """
@@ -44,7 +45,7 @@ process FETCH_ARTICLES {
     """
 }
 
-process SAVE_ARTICLE {
+process SAVE {
 
     container 'community.wave.seqera.io/library/duckdb:1.4.1--3daff581f117ee85'
     tag { TITLE }
@@ -115,7 +116,7 @@ process EXTRACT_METADATA {
 
 }
 
-process SCREEN_ARTICLES {
+process SCREEN {
 
     container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
     label 'gemini_api'
@@ -152,7 +153,7 @@ process SCREEN_ARTICLES {
     """
 }
 
-process PRIORITIZE_ARTICLES {
+process PRIORITIZE {
 
     container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
     label 'gemini_api'
@@ -204,29 +205,29 @@ workflow {
 
         FETCH_ARTICLES(journals, 50)
         EXTRACT_METADATA(
-            FETCH_ARTICLES.out.flatten(),
+            FETCH_ARTICLES.out.flatten() | take(5),
             file(params.metadata_extraction.system_prompt),
             params.metadata_extraction.model
         )
 
         articles = EXTRACT_METADATA.out |
             splitCsv(sep: '\t')
-        SCREEN_ARTICLES(
+        SCREEN(
             articles,
             file(params.screening.system_prompt),
             file(params.research_interests),
             params.screening.model
         )
-        PRIORITIZE_ARTICLES(
-            SCREEN_ARTICLES.out,
+        PRIORITIZE(
+            SCREEN.out,
             file(params.prioritization.system_prompt),
             file(params.research_interests),
             params.prioritization.model
         )
 
-        SAVE_ARTICLE(PRIORITIZE_ARTICLES.out, database_path)
+        SAVE(PRIORITIZE.out, database_path)
 
-        all_saved = SAVE_ARTICLE.out.collect()
+        all_saved = SAVE.out.collect()
         // UPDATE_TIMESTAMPS(all_saved, database_path)
 
     }
