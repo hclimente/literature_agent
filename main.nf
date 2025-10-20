@@ -209,6 +209,7 @@ workflow {
         )
 
         articles = EXTRACT_METADATA.out |
+            filter { it.size() > 0 } |  // Skip empty metadata files
             splitCsv(sep: '\t')
         SCREEN_ARTICLES(
             articles,

@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
+from utils import ValidationError
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -30,8 +31,9 @@ def validate_priority_response(response_text: str) -> str:
         str | None: "low", "medium", or "high" if valid, None if invalid
     """
     if not response_text or not isinstance(response_text, str):
-        logging.error("❌ AI returned empty or non-string response")
-        raise
+        raise ValidationError(
+            "priority", response_text, "Empty or non-string response."
+        )
 
     # allow for some common variations
     priority_mappings = {
@@ -54,10 +56,7 @@ def validate_priority_response(response_text: str) -> str:
     try:
         return priority_mappings[priority]
     except KeyError:
-        logging.error(
-            f"❌  Invalid priority: '{response_text}'. Expected 'low', 'medium', or 'high'"
-        )
-        raise
+        raise ValidationError("priority", priority, "Invalid priority value.")
 
 
 def prioritize_articles(

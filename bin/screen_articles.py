@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
+from utils import ValidationError
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -30,8 +31,9 @@ def validate_screening_response(response_text: str) -> str:
         str: "true" or "false"
     """
     if not response_text or not isinstance(response_text, str):
-        logging.error("❌ AI returned empty or non-string response")
-        raise
+        raise ValidationError(
+            "screening", response_text, "Empty or non-string response."
+        )
 
     # allow for some common variations
     decision_mappings = {
@@ -50,10 +52,11 @@ def validate_screening_response(response_text: str) -> str:
     try:
         return decision_mappings[decision]
     except KeyError:
-        logging.error(
-            f"❌  Invalid priority: '{response_text}'. Expected 'true' or 'false'"
+        raise ValidationError(
+            "screening",
+            decision,
+            "Invalid screening value. Expected 'true' or 'false'.",
         )
-        raise
 
 
 def screen_article(

@@ -7,6 +7,8 @@ import re
 from google import genai
 from google.genai import types
 
+from utils import ValidationError
+
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 if not API_KEY:
@@ -45,31 +47,31 @@ def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
         tuple[str, str, str]: (title, summary, doi)
     """
     if not metadata or not isinstance(metadata, str):
-        logging.error("❌ AI returned empty or non-string response")
-        raise
+        raise ValidationError("metadata", metadata, "Empty or non-string response.")
 
     parts = metadata.strip().split("|")
     if len(parts) != 3:
-        logging.error(f"Expected 3 parts separated by |, got {len(parts)}: {metadata}")
-        raise
+        raise ValidationError(
+            "metadata",
+            metadata,
+            f"Incorrect number of fields. Expected 3, got {len(parts)}.",
+        )
 
     title, summary, doi = parts
     title, summary, doi = title.strip(), summary.strip(), doi.strip()
 
     # Validate individual fields
     if not title:
-        logging.error("❌ Title cannot be empty")
-        raise
+        raise ValidationError("title", title, "Title cannot be empty.")
 
     if not summary:
-        logging.error("❌ Summary cannot be empty")
-        raise
+        raise ValidationError("summary", summary, "Summary cannot be empty.")
 
     # Validate DOI format if not NULL
     if doi != "NULL":
         # Basic DOI format: 10.xxxx/yyyyy
-        if not re.match(r"^10\.\d+/.+", doi):
-            logging.warning(f"⚠️ Invalid DOI format: '{doi}', setting to NULL")
+        if not re.match(r"^10\.\d{4,}/[-._;()/:\w\[\]]+$", doi):
+            logging.warning(f"⚠️ Invalid DOI format: '{doi}', setting to NULL.")
             doi = "NULL"
 
     return title, summary, doi

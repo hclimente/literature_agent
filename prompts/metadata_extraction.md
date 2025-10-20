@@ -12,4 +12,6 @@ title|summary|doi
 
 Do not include field names or delimiters other than the single pipe |. When a field is not available, use "NULL" as the value.
 
+If the title or the summary contains pipe characters, replace them with "<pipe>".
+
 Example Output Format: From reference to reality: identifying noncanonical peptides|Trends in Genetics|The translation of genome...|https://www.cell.com/...|2025-08-04|10.1016/j.tig.2025.07.011
