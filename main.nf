@@ -29,6 +29,7 @@ process FETCH_ARTICLES {
 
     input:
     tuple val(JOURNAL_NAME), val(FEED_URL), val(LAST_CHECKED)
+    val MAX_ITEMS
 
     output:
     path "article_*.txt"
@@ -39,7 +40,7 @@ process FETCH_ARTICLES {
 --journal_name "${JOURNAL_NAME}" \
 --feed_url "${FEED_URL}" \
 --cutoff_date "${LAST_CHECKED}" \
---max_items 20
+--max_items ${MAX_ITEMS}
     """
 }
 
@@ -201,7 +202,7 @@ workflow {
     } else {
         journals = channel.fromQuery("SELECT name, feed_url, last_checked FROM sources", db: 'articles_db')
 
-        FETCH_ARTICLES(journals)
+        FETCH_ARTICLES(journals, 50)
         EXTRACT_METADATA(
             FETCH_ARTICLES.out.flatten(),
             file(params.metadata_extraction.system_prompt),
@@ -209,7 +210,6 @@ workflow {
         )
 
         articles = EXTRACT_METADATA.out |
-            filter { it.size() > 0 } |  // Skip empty metadata files
             splitCsv(sep: '\t')
         SCREEN_ARTICLES(
             articles,

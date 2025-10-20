@@ -10,8 +10,8 @@ import feedparser
 def fetch_rss_feed(
     journal_name: str,
     url: str,
-    cutoff_date: str = "2025-10-05",
-    max_items: int = 3,
+    cutoff_date: str,
+    max_items: int,
 ):
     """
     Fetch the latest news articles from an RSS feed and provide concise summaries.
