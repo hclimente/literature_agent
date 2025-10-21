@@ -33,7 +33,7 @@ process FETCH_ARTICLES {
     val MAX_ITEMS
 
     output:
-    path "article_*.txt", optional: true
+    path "articles.json", optional: true
 
     script:
     """
@@ -44,6 +44,27 @@ process FETCH_ARTICLES {
 --max_items ${MAX_ITEMS}
     """
 }
+
+process REMOVE_PROCESSED {
+
+    container 'community.wave.seqera.io/library/duckdb:1.4.1--3daff581f117ee85'
+
+    input:
+    path ARTICLES_JSON
+    path DB_PATH
+
+    output:
+    path "unprocessed_articles.json"
+
+    """
+    duckdb_remove_processed.py \
+--db_path ${DB_PATH} \
+--articles_json ${ARTICLES_JSON} \
+--output_json unprocessed_articles.json
+    """
+
+}
+
 
 process SAVE {
 
@@ -204,30 +225,32 @@ workflow {
         journals = channel.fromQuery("SELECT name, feed_url, last_checked FROM sources", db: 'articles_db')
 
         FETCH_ARTICLES(journals, 50)
+        REMOVE_PROCESSED(FETCH_ARTICLES.out, database_path)
+
         EXTRACT_METADATA(
-            FETCH_ARTICLES.out.flatten() | take(5),
+            REMOVE_PROCESSED.out.flatten().splitJson().flatten() | take(5),
             file(params.metadata_extraction.system_prompt),
             params.metadata_extraction.model
         )
 
-        articles = EXTRACT_METADATA.out |
-            splitCsv(sep: '\t')
-        SCREEN(
-            articles,
-            file(params.screening.system_prompt),
-            file(params.research_interests),
-            params.screening.model
-        )
-        PRIORITIZE(
-            SCREEN.out,
-            file(params.prioritization.system_prompt),
-            file(params.research_interests),
-            params.prioritization.model
-        )
+        // articles = EXTRACT_METADATA.out |
+        //     splitCsv(sep: '\t')
+        // SCREEN(
+        //     articles,
+        //     file(params.screening.system_prompt),
+        //     file(params.research_interests),
+        //     params.screening.model
+        // )
+        // PRIORITIZE(
+        //     SCREEN.out,
+        //     file(params.prioritization.system_prompt),
+        //     file(params.research_interests),
+        //     params.prioritization.model
+        // )
 
-        SAVE(PRIORITIZE.out, database_path)
+        // SAVE(PRIORITIZE.out, database_path)
 
-        all_saved = SAVE.out.collect()
+        // all_saved = SAVE.out.collect()
         // UPDATE_TIMESTAMPS(all_saved, database_path)
 
     }
