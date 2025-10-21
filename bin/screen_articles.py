@@ -58,7 +58,7 @@ def validate_screening_response(response_text: str) -> str:
             "'false'": "false",
         }
 
-        decision = response_text.strip().lower()
+        decision = decision.strip().lower()
 
         try:
             decision = decision_mappings[decision]
