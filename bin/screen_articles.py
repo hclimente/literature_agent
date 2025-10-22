@@ -200,8 +200,8 @@ def screen_articles(
     logging.debug(f"Screening Fail: {response_fail}")
 
     articles_pass, articles_fail = split_by_qc(articles, response_pass, response_fail)
-    json.dump(articles_pass, open("pass_articles.json", "w"), indent=2)
-    json.dump(articles_fail, open("failed_articles.json", "w"), indent=2)
+    json.dump(articles_pass, open("screening_pass.json", "w"), indent=2)
+    json.dump(articles_fail, open("screening_fail.json", "w"), indent=2)
     logging.info("✅ Done screening articles.")
 
 

@@ -11,8 +11,8 @@ process EXTRACT_METADATA {
     val ALLOW_QC_ERRORS
 
     output:
-    path "pass_articles.json", emit: pass
-    path "failed_articles.json", optional: true, emit: fail
+    path "metadata_pass.json", emit: pass
+    path "metadata_fail.json", optional: true, emit: fail
 
     script:
     """
@@ -41,8 +41,8 @@ process SCREEN {
     val ALLOW_QC_ERRORS
 
     output:
-    path "pass_articles.json", emit: pass
-    path "failed_articles.json", optional: true, emit: fail
+    path "screening_pass.json", emit: pass
+    path "screening_fail.json", optional: true, emit: fail
 
     script:
     """
@@ -71,8 +71,8 @@ process PRIORITIZE {
     val ALLOW_QC_ERRORS
 
     output:
-    path "pass_articles.json", emit: pass
-    path "failed_articles.json", optional: true, emit: fail
+    path "priority_pass.json", emit: pass
+    path "priority_fail.json", optional: true, emit: fail
 
     script:
     """

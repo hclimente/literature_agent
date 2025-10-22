@@ -188,8 +188,8 @@ def prioritize_articles(
     logging.debug(f"Priority Fail: {response_fail}")
 
     articles_pass, articles_fail = split_by_qc(articles, response_pass, response_fail)
-    json.dump(articles_pass, open("pass_articles.json", "w"), indent=2)
-    json.dump(articles_fail, open("failed_articles.json", "w"), indent=2)
+    json.dump(articles_pass, open("priority_pass.json", "w"), indent=2)
+    json.dump(articles_fail, open("priority_fail.json", "w"), indent=2)
     logging.info("✅ Done prioritizing articles.")
 
 
