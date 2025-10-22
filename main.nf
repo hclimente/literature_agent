@@ -137,12 +137,13 @@ process EXTRACT_METADATA {
     secret 'GOOGLE_API_KEY'
 
     input:
-    file ARTICLES_JSON
-    file SYSTEM_PROMPT
+    path ARTICLES_JSON
+    path SYSTEM_PROMPT
     val MODEL
 
     output:
-    file "articles_with_metadata.json"
+    path "pass_articles.json", emit: pass
+    path "failed_articles.json", optional: true, emit: fail
 
     script:
     """
@@ -164,7 +165,7 @@ process SCREEN {
 
     input:
     path ARTICLES_JSON
-    file SYSTEM_PROMPT
+    path SYSTEM_PROMPT
     path RESEARCH_INTERESTS_PATH
     val MODEL
 
@@ -246,7 +247,7 @@ workflow {
     )
 
     SCREEN(
-        EXTRACT_METADATA.out,
+        EXTRACT_METADATA.out.pass,
         file(params.screening.system_prompt),
         file(params.research_interests),
         params.screening.model

@@ -8,7 +8,7 @@ import re
 from google import genai
 from google.genai import types
 
-from utils import validate_json_response, ValidationError
+from utils import validate_json_response
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -37,6 +37,33 @@ def sanitize_text(text: str) -> str:
     return text
 
 
+def split_articles_by_metadata_qc(articles, metadata_pass, metadata_fail):
+    """
+    Split articles into those that passed and failed metadata QC.
+    Args:
+        articles (list): List of articles.
+        metadata_pass (dict): Metadata that passed validation.
+        metadata_fail (dict): Metadata that failed validation.
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
+    articles_pass = []
+    articles_fail = []
+
+    for a in articles:
+        url = a["link"]
+
+        if url in metadata_fail:
+            articles_fail.append(a)
+        else:
+            a["title"] = metadata_pass[url]["title"]
+            a["summary"] = metadata_pass[url]["summary"]
+            a["doi"] = metadata_pass[url]["doi"]
+            articles_pass.append(a)
+
+    return articles_pass, articles_fail
+
+
 def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
     """
     Validate and parse AI metadata response. It raises an error if validation fails.
@@ -48,47 +75,50 @@ def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
         tuple[str, str, str]: (title, summary, doi)
     """
 
-    for d in metadata.values():
+    metadata_pass = {}
+    metadata_fail = {}
+
+    for k, d in metadata.items():
         if not d or not isinstance(d, dict):
-            raise ValidationError(
-                "metadata_extraction", d, "Empty or non-dict response."
-            )
+            d["error"] = "Empty or non-dict response."
+            metadata_fail[k] = d
+            continue
 
         if not all(k in d for k in ["title", "summary", "doi"]):
-            raise ValidationError(
-                "metadata_extraction",
-                d,
-                "Missing keys (title, summary, doi).",
-            )
+            d["error"] = "Missing keys (title, summary, doi)."
+            metadata_fail[k] = d
+            continue
 
         # Validate individual fields
         if not d["title"]:
-            raise ValidationError(
-                "metadata_extraction", d["title"], "Title cannot be empty."
-            )
+            d["error"] = "Title cannot be empty."
+            metadata_fail[k] = d
+            continue
         else:
             d["title"] = sanitize_text(d["title"].strip())
 
         if not d["summary"]:
-            raise ValidationError(
-                "metadata_extraction", d["summary"], "Summary cannot be empty."
-            )
+            d["error"] = "Summary cannot be empty."
+            metadata_fail[k] = d
+            continue
         else:
             d["summary"] = d["summary"].strip()
 
         if not d["doi"]:
-            raise ValidationError(
-                "metadata_extraction", d["doi"], "DOI cannot be empty."
-            )
+            d["error"] = "DOI cannot be empty."
+            metadata_fail[k] = d
+            continue
 
         elif d["doi"] != "NULL":
             if not re.match(r"^10\.\d{4,}/[-._;()/:\w\[\]]+$", d["doi"]):
-                raise ValidationError(
-                    "metadata_extraction", d["doi"], "Invalid DOI format."
-                )
+                d["error"] = f"Invalid DOI format: {d['doi']}"
+                metadata_fail[k] = d
+                continue
             d["doi"] = d["doi"].strip()
 
-    return metadata
+        metadata_pass[k] = d
+
+    return metadata_pass, metadata_fail
 
 
 def extract_metadata(
@@ -139,17 +169,16 @@ def extract_metadata(
     response = validate_json_response(
         response_text, "metadata_extraction", [a["link"] for a in articles]
     )
-    metadata = validate_metadata_response(response)
-    logging.info(f"Validated Metadata: {metadata}")
+    metadata_pass, metadata_fail = validate_metadata_response(response)
+    logging.info(f"Validated Metadata ({len(metadata_pass)}): {metadata_pass}")
+    logging.info(f"Invalid Metadata ({len(metadata_fail)}): {metadata_fail}")
 
-    for a in articles:
-        url = a["link"]
-        a["title"] = metadata[url]["title"]
-        a["summary"] = metadata[url]["summary"]
-        a["doi"] = metadata[url]["doi"]
+    articles_pass, articles_fail = split_articles_by_metadata_qc(
+        articles, metadata_pass, metadata_fail
+    )
 
-    json.dump(articles, open("articles_with_metadata.json", "w"), indent=2)
-
+    json.dump(articles_pass, open("pass_articles.json", "w"), indent=2)
+    json.dump(articles_fail, open("failed_articles.json", "w", indent=2))
     logging.info("✅ Done extracting metadata")
 
 
