@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import validate_json_response, ValidationError
+from utils import validate_json_response
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -29,18 +29,22 @@ def validate_screening_response(response: str) -> str:
         response (str): The parsed AI response for screening decision
 
     Returns:
-        str: "true" or "false"
+        tuple: (articles_pass, articles_fail)
     """
-    for d in response.values():
+
+    articles_pass = {}
+    articles_fail = {}
+
+    for k, d in response.items():
         if not d or not isinstance(d, dict):
-            raise ValidationError("screening", d, "Empty or non-dict response.")
+            d["screening_error"] = "Empty or non-dict response."
+            articles_fail[k] = d
+            continue
 
         if not all(k in d for k in ["decision", "reasoning"]):
-            raise ValidationError(
-                "screening",
-                d,
-                "Missing keys (decision and/or reasoning).",
-            )
+            d["screening_error"] = "Missing keys (decision and/or reasoning)."
+            articles_fail[k] = d
+            continue
 
         decision = d["decision"]
 
@@ -48,11 +52,9 @@ def validate_screening_response(response: str) -> str:
             decision = "true" if decision else "false"
         else:
             if not isinstance(decision, str):
-                raise ValidationError(
-                    "screening",
-                    decision,
-                    "Screening decision should be a string.",
-                )
+                d["screening_error"] = "Screening decision should be a string."
+                articles_fail[k] = d
+                continue
 
             # allow for some common variations
             decision_mappings = {
@@ -71,13 +73,42 @@ def validate_screening_response(response: str) -> str:
             try:
                 decision = decision_mappings[decision]
             except KeyError:
-                raise ValidationError(
-                    "screening",
-                    decision,
-                    "Invalid screening value. Expected 'true' or 'false'.",
+                d["screening_error"] = (
+                    "Invalid screening value. Expected 'true' or 'false'."
                 )
+                articles_fail[k] = d
+                continue
 
-    return response
+        d["decision"] = decision
+        articles_pass[k] = d
+
+    return articles_pass, articles_fail
+
+
+def split_by_qc(articles, qc_pass, qc_fail):
+    """
+    Split articles into those that passed and failed screening QC.
+    Args:
+        articles (list): List of articles.
+        qc_pass (dict): Metadata that passed validation.
+        qc_faill (dict): Metadata that failed validation.
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
+    articles_pass = []
+    articles_fail = []
+
+    for a in articles:
+        doi = a["doi"]
+
+        if doi in qc_fail:
+            articles_fail.append(a)
+        else:
+            a["screening_decision"] = qc_pass[doi]["decision"]
+            a["screening_reasoning"] = qc_pass[doi]["reasoning"]
+            articles_pass.append(a)
+
+    return articles_pass, articles_fail
 
 
 def screen_articles(
@@ -145,14 +176,15 @@ def screen_articles(
     response = validate_json_response(
         response_text, "screening", [a["doi"] for a in articles]
     )
-    decisions = validate_screening_response(response)
-    for a in articles:
-        doi = a["doi"]
-        a["screen_decision"] = decisions[doi]["decision"]
-        a["screen_reasoning"] = decisions[doi]["reasoning"]
+    response_pass, response_fail = validate_screening_response(response)
+    logging.info(f"Validated Screening for {len(response_pass)} articles.")
+    logging.debug(f"Screening Pass: {response_pass}")
+    logging.info(f"Invalid Screening for {len(response_fail)} articles.")
+    logging.debug(f"Screening Fail: {response_fail}")
 
-    json.dump(articles, open("screened_articles.json", "w"), indent=2)
-
+    articles_pass, articles_fail = split_by_qc(articles, response_pass, response_fail)
+    json.dump(articles_pass, open("pass_articles.json", "w"), indent=2)
+    json.dump(articles_fail, open("failed_articles.json", "w"), indent=2)
     logging.info("✅ Done screening articles.")
 
 

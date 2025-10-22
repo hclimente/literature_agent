@@ -37,7 +37,7 @@ def sanitize_text(text: str) -> str:
     return text
 
 
-def split_articles_by_metadata_qc(articles, metadata_pass, metadata_fail):
+def split_by_qc(articles, metadata_pass, metadata_fail):
     """
     Split articles into those that passed and failed metadata QC.
     Args:
@@ -72,53 +72,55 @@ def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
         metadata (str): The AI response in JSON format.
 
     Returns:
-        tuple[str, str, str]: (title, summary, doi)
+        tuple[dict, dict]: A tuple containing two dictionaries:
+            - articles_pass: Articles that passed validation.
+            - articles_fail: Articles that failed validation with error messages.
     """
 
-    metadata_pass = {}
-    metadata_fail = {}
+    articles_pass = {}
+    articles_fail = {}
 
     for k, d in metadata.items():
         if not d or not isinstance(d, dict):
-            d["error"] = "Empty or non-dict response."
-            metadata_fail[k] = d
+            d["metadata_error"] = "Empty or non-dict response."
+            articles_fail[k] = d
             continue
 
         if not all(k in d for k in ["title", "summary", "doi"]):
-            d["error"] = "Missing keys (title, summary, doi)."
-            metadata_fail[k] = d
+            d["metadata_error"] = "Missing keys (title, summary, doi)."
+            articles_fail[k] = d
             continue
 
         # Validate individual fields
         if not d["title"]:
-            d["error"] = "Title cannot be empty."
-            metadata_fail[k] = d
+            d["metadata_error"] = "Title cannot be empty."
+            articles_fail[k] = d
             continue
         else:
             d["title"] = sanitize_text(d["title"].strip())
 
         if not d["summary"]:
-            d["error"] = "Summary cannot be empty."
-            metadata_fail[k] = d
+            d["metadata_error"] = "Summary cannot be empty."
+            articles_fail[k] = d
             continue
         else:
             d["summary"] = d["summary"].strip()
 
         if not d["doi"]:
-            d["error"] = "DOI cannot be empty."
-            metadata_fail[k] = d
+            d["metadata_error"] = "DOI cannot be empty."
+            articles_fail[k] = d
             continue
 
         elif d["doi"] != "NULL":
             if not re.match(r"^10\.\d{4,}/[-._;()/:\w\[\]]+$", d["doi"]):
-                d["error"] = f"Invalid DOI format: {d['doi']}"
-                metadata_fail[k] = d
+                d["metadata_error"] = f"Invalid DOI format: {d['doi']}"
+                articles_fail[k] = d
                 continue
             d["doi"] = d["doi"].strip()
 
-        metadata_pass[k] = d
+        articles_pass[k] = d
 
-    return metadata_pass, metadata_fail
+    return articles_pass, articles_fail
 
 
 def extract_metadata(
@@ -169,13 +171,13 @@ def extract_metadata(
     response = validate_json_response(
         response_text, "metadata_extraction", [a["link"] for a in articles]
     )
-    metadata_pass, metadata_fail = validate_metadata_response(response)
-    logging.info(f"Validated Metadata ({len(metadata_pass)}): {metadata_pass}")
-    logging.info(f"Invalid Metadata ({len(metadata_fail)}): {metadata_fail}")
+    response_pass, response_fail = validate_metadata_response(response)
+    logging.info(f"Validated Metadata for {len(response_pass)} articles.")
+    logging.debug(f"Screening Pass: {response_pass}")
+    logging.info(f"Invalid Metadata for {len(response_fail)} articles.")
+    logging.debug(f"Screening Fail: {response_fail}")
 
-    articles_pass, articles_fail = split_articles_by_metadata_qc(
-        articles, metadata_pass, metadata_fail
-    )
+    articles_pass, articles_fail = split_by_qc(articles, response_pass, response_fail)
 
     json.dump(articles_pass, open("pass_articles.json", "w"), indent=2)
     json.dump(articles_fail, open("failed_articles.json", "w"), indent=2)

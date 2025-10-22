@@ -38,7 +38,8 @@ process SCREEN {
     val MODEL
 
     output:
-    path "screened_articles.json"
+    path "pass_articles.json", emit: pass
+    path "failed_articles.json", optional: true, emit: fail
 
     script:
     """
@@ -65,7 +66,8 @@ process PRIORITIZE {
     val MODEL
 
     output:
-    path "prioritized_articles.json"
+    path "pass_articles.json", emit: pass
+    path "failed_articles.json", optional: true, emit: fail
 
     script:
     """

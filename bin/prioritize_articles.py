@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import validate_json_response, ValidationError
+from utils import validate_json_response
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -29,26 +29,29 @@ def validate_priority_response(response: str) -> str:
         response_text (str): The AI response for priority decision
 
     Returns:
-        str | None: "low", "medium", or "high" if valid, None if invalid
+        tuple: (articles_pass, articles_fail)
     """
+
+    articles_pass = {}
+    articles_fail = {}
 
     for k, d in response.items():
         if not d or not isinstance(d, dict):
-            raise ValidationError("prioritization", d, "Empty or non-dict response.")
+            d["priority_error"] = "Empty or non-dict response."
+            articles_fail[k] = d
+            continue
 
         if not all(k in d for k in ["decision", "reasoning"]):
-            raise ValidationError(
-                "prioritization",
-                d,
-                "Missing keys (decision and/or reasoning).",
-            )
+            d["priority_error"] = "Missing keys (decision and/or reasoning)."
+            articles_fail[k] = d
+            continue
 
         priority = d["decision"]
 
         if not priority or not isinstance(priority, str):
-            raise ValidationError(
-                "prioritization", priority, "Empty or non-string response."
-            )
+            d["priority_error"] = "Empty or non-string response."
+            articles_fail[k] = d
+            continue
 
         # allow for some common variations
         priority_mappings = {
@@ -69,11 +72,44 @@ def validate_priority_response(response: str) -> str:
         priority = priority.strip().lower()
 
         try:
-            response[k]["decision"] = priority_mappings[priority]
+            priority = priority_mappings[priority]
         except KeyError:
-            raise ValidationError("prioritization", priority, "Invalid priority value.")
+            d["priority_error"] = (
+                "Invalid priority value. Expected 'low', 'medium', or 'high'."
+            )
+            articles_fail[k] = d
+            continue
 
-    return response
+        d["decision"] = priority
+        articles_pass[k] = d
+
+    return articles_pass, articles_fail
+
+
+def split_by_qc(articles, qc_pass, qc_fail):
+    """
+    Split articles into those that passed and failed priotization QC.
+    Args:
+        articles (list): List of articles.
+        qc_pass (dict): Metadata that passed validation.
+        qc_faill (dict): Metadata that failed validation.
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
+    articles_pass = []
+    articles_fail = []
+
+    for a in articles:
+        doi = a["doi"]
+
+        if doi in qc_fail:
+            articles_fail.append(a)
+        else:
+            a["priority_decision"] = qc_pass[doi]["decision"]
+            a["priority_reasoning"] = qc_pass[doi]["reasoning"]
+            articles_pass.append(a)
+
+    return articles_pass, articles_fail
 
 
 def prioritize_articles(
@@ -142,17 +178,15 @@ def prioritize_articles(
     response = validate_json_response(
         response_text, "prioritization", [a["doi"] for a in articles]
     )
+    response_pass, response_fail = validate_priority_response(response)
+    logging.info(f"Validated Priority for {len(response_pass)} articles.")
+    logging.debug(f"Priority Pass: {response_pass}")
+    logging.info(f"Invalid Priority for {len(response_fail)} articles.")
+    logging.debug(f"Priority Fail: {response_fail}")
 
-    priorities = validate_priority_response(response)
-    logging.debug(f"Priority: {priorities}")
-
-    for a in articles:
-        doi = a["doi"]
-        a["priority_decision"] = priorities[doi]["decision"]
-        a["priority_reasoning"] = priorities[doi]["reasoning"]
-
-    json.dump(articles, open("prioritized_articles.json", "w"), indent=2)
-
+    articles_pass, articles_fail = split_by_qc(articles, response_pass, response_fail)
+    json.dump(articles_pass, open("pass_articles.json", "w"), indent=2)
+    json.dump(articles_fail, open("failed_articles.json", "w"), indent=2)
     logging.info("✅ Done prioritizing articles.")
 
 
