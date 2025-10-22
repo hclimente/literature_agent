@@ -25,6 +25,7 @@ def create_journal_table(journals_tsv: str, db_path: str, global_cutoff_date: st
         logging.info("✅ Done creating sources table")
 
         with open(journals_tsv, "r") as f:
+            f.readline()  # skip header
             sources = []
             for line in f:
                 if line.strip() == "":
@@ -64,8 +65,10 @@ def create_articles_table(db_path: str):
                 link TEXT NOT NULL,
                 date DATE NOT NULL,
                 doi TEXT DEFAULT NULL,
-                screened BOOLEAN DEFAULT NULL,
+                screening_decision BOOLEAN DEFAULT NULL,
+                screening_reasoning TEXT DEFAULT NULL,
                 priority priority_level DEFAULT NULL,
+                priority_reasoning TEXT DEFAULT NULL,
                 FOREIGN KEY (journal_name) REFERENCES sources(name),
                 PRIMARY KEY (link)
             )

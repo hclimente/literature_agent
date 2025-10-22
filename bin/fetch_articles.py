@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import json
 import logging
 import time
 
@@ -14,14 +15,15 @@ def fetch_rss_feed(
     max_items: int,
 ):
     """
-    Fetch the latest news articles from an RSS feed and provide concise summaries.
+    Fetch the latest news articles from an RSS feed and store them in a JSON file.
+
     Args:
         journal_name (str): The name of the journal to fetch articles from.
         url (str): The URL of the RSS feed to fetch.
         cutoff_date (str): The cutoff date for articles in ISO 8601 format (YYYY-MM-DD). Articles published after this date will be included. Defaults to "2025-10-12".
         max_items (int): The maximum number of items to return. Defaults to 3.
     Returns:
-        list: A list of dictionaries, each containing 'title', 'link', 'summary', and 'date' of an article.
+        list: A list of dictionaries, each containing 'title', 'link', 'date', and 'raw_contents' of an article.
     """
 
     logging.info("-" * 20)
@@ -49,6 +51,7 @@ def fetch_rss_feed(
 
     logging.info("⌛ Began writing articles to TSV...")
 
+    articles = []
     for i, item in enumerate(feed.entries[:max_items]):
         logging.info(f"⌛ Began processing item {i + 1}...")
         logging.info(item)
@@ -88,20 +91,27 @@ def fetch_rss_feed(
             )
             continue
 
-        with open(f"article_{i}.txt", "w") as f:
-            f.write(f"Journal: {journal_name}\n")
-            f.write(f"URL: {item.link}\n")
-            f.write(f"Date: {item_date_naive.date().isoformat()}\n")
-            f.write(f"{item}")
+        article_data = {
+            "journal_name": journal_name,
+            "link": item.link,
+            "date": item_date_naive.date().isoformat(),
+            "raw_contents": str(item),
+        }
+        articles.append(article_data)
 
-        logging.info(f"✅ Done processing item {i}.")
+        logging.info(f"✅ Done processing item {i + 1}.")
 
-    logging.info("✅ Done writing articles to TSV.")
+    if articles:
+        json.dump(articles, open("articles.json", "w"), indent=2)
+
+    logging.info("✅ Done writing articles to JSON.")
+
+    return articles
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Fetch articles from RSS feeds and store them in a database."
+        description="Fetch articles from RSS feeds and store them in a JSON file."
     )
     parser.add_argument(
         "--journal_name",
