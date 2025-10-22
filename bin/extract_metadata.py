@@ -119,7 +119,7 @@ def validate_metadata_response(
             continue
 
         elif d["doi"] != "NULL":
-            if not re.match(r"^10\.\d{4,}/[-._;()/:\w\[\]]+$", d["doi"]):
+            if not re.match(r"^10\.\d{4,}/[^\s]+$", d["doi"]):
                 articles_fail[k] = handle_error(
                     d, d["metadata_error"], "metadata", allow_errors
                 )
