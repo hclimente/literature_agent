@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import validate_json_response
+from utils import validate_json_response, handle_error
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -21,12 +21,13 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 
-def validate_screening_response(response: str) -> str:
+def validate_screening_response(response: str, allow_errors: bool) -> str:
     """
     Validate AI screening response. It raises an error if validation fails.
 
     Args:
         response (str): The parsed AI response for screening decision
+        allow_errors (bool): Whether to allow errors without failing the process.
 
     Returns:
         tuple: (articles_pass, articles_fail)
@@ -37,13 +38,18 @@ def validate_screening_response(response: str) -> str:
 
     for k, d in response.items():
         if not d or not isinstance(d, dict):
-            d["screening_error"] = "Empty or non-dict response."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d, "Empty or non-dict response.", "screening", allow_errors
+            )
             continue
 
         if not all(k in d for k in ["decision", "reasoning"]):
-            d["screening_error"] = "Missing keys (decision and/or reasoning)."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d,
+                "Missing keys (decision and/or reasoning).",
+                "screening",
+                allow_errors,
+            )
             continue
 
         decision = d["decision"]
@@ -52,8 +58,12 @@ def validate_screening_response(response: str) -> str:
             decision = "true" if decision else "false"
         else:
             if not isinstance(decision, str):
-                d["screening_error"] = "Screening decision should be a string."
-                articles_fail[k] = d
+                articles_fail[k] = handle_error(
+                    d,
+                    "Screening decision should be a string.",
+                    "screening",
+                    allow_errors,
+                )
                 continue
 
             # allow for some common variations
@@ -73,10 +83,12 @@ def validate_screening_response(response: str) -> str:
             try:
                 decision = decision_mappings[decision]
             except KeyError:
-                d["screening_error"] = (
-                    "Invalid screening value. Expected 'true' or 'false'."
+                articles_fail[k] = handle_error(
+                    d,
+                    "Invalid screening value. Expected 'true' or 'false'.",
+                    "screening",
+                    allow_errors,
                 )
-                articles_fail[k] = d
                 continue
 
         d["decision"] = decision
@@ -101,12 +113,12 @@ def split_by_qc(articles, qc_pass, qc_fail):
     for a in articles:
         doi = a["doi"]
 
-        if doi in qc_fail:
-            articles_fail.append(a)
-        else:
+        if doi in qc_pass:
             a["screening_decision"] = qc_pass[doi]["decision"]
             a["screening_reasoning"] = qc_pass[doi]["reasoning"]
             articles_pass.append(a)
+        else:
+            articles_fail.append(a)
 
     return articles_pass, articles_fail
 
@@ -116,6 +128,7 @@ def screen_articles(
     system_prompt_path: str,
     research_interests_path: str,
     model: str,
+    allow_qc_errors: bool,
 ):
     """
     Screens articles based on user research interests.
@@ -125,6 +138,7 @@ def screen_articles(
         system_prompt_path (str): The path to the system prompt file.
         research_interests_path (str): The path to a text file containing the user's research interests.
         model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
+        allow_qc_errors (bool): Whether to allow QC errors without failing the process.
     Returns:
         None. Writes the screening decision to 'decision.txt'.
     """
@@ -134,6 +148,7 @@ def screen_articles(
     logging.info(f"system_prompt_path      : {system_prompt_path}")
     logging.info(f"research_interests_path : {research_interests_path}")
     logging.info(f"model                   : {model}")
+    logging.info(f"allow_qc_errors         : {allow_qc_errors}")
     logging.info("-" * 20)
 
     articles = json.load(open(articles_json, "r"))
@@ -176,7 +191,9 @@ def screen_articles(
     response = validate_json_response(
         response_text, "screening", [a["doi"] for a in articles]
     )
-    response_pass, response_fail = validate_screening_response(response)
+    response_pass, response_fail = validate_screening_response(
+        response, allow_qc_errors
+    )
     logging.info(f"Validated Screening for {len(response_pass)} articles.")
     logging.debug(f"Screening Pass: {response_pass}")
     logging.info(f"Invalid Screening for {len(response_fail)} articles.")
@@ -218,6 +235,12 @@ if __name__ == "__main__":
         required=True,
         help="The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
     )
+    parser.add_argument(
+        "--allow_qc_errors",
+        type=bool,
+        required=True,
+        help="Whether to allow QC errors without failing the process.",
+    )
 
     args = parser.parse_args()
 
@@ -226,4 +249,5 @@ if __name__ == "__main__":
         args.system_prompt_path,
         args.research_interests_path,
         args.model,
+        args.allow_qc_errors,
     )

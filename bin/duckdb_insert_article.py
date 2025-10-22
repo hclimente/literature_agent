@@ -26,8 +26,8 @@ def insert_article(
 
     for a in articles:
         a["doi"] = a["doi"] if a["doi"] != "NULL" else None
-        a["screen_decision"] = (
-            a["screen_decision"] if a["screen_decision"] != "NULL" else None
+        a["screening_decision"] = (
+            a["screening_decision"] if a["screening_decision"] != "NULL" else None
         )
         a["priority_decision"] = (
             a["priority_decision"] if a["priority_decision"] != "NULL" else None
@@ -39,7 +39,7 @@ def insert_article(
             try:
                 con.execute(
                     """
-                    INSERT INTO articles (title, summary, link, journal_name, date, doi, screen_decision, screen_reasoning, priority, priority_reasoning)
+                    INSERT INTO articles (title, summary, link, journal_name, date, doi, screening_decision, screening_reasoning, priority, priority_reasoning)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
@@ -49,8 +49,8 @@ def insert_article(
                         a["journal_name"],
                         a["date"],
                         a["doi"],
-                        a["screen_decision"],
-                        a["screen_reasoning"],
+                        a["screening_decision"],
+                        a["screening_reasoning"],
                         a["priority_decision"],
                         a["priority_reasoning"],
                     ),

@@ -8,7 +8,7 @@ import re
 from google import genai
 from google.genai import types
 
-from utils import validate_json_response
+from utils import validate_json_response, handle_error
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -64,7 +64,9 @@ def split_by_qc(articles, metadata_pass, metadata_fail):
     return articles_pass, articles_fail
 
 
-def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
+def validate_metadata_response(
+    metadata: str, allow_errors: bool = False
+) -> tuple[str, str, str]:
     """
     Validate and parse AI metadata response. It raises an error if validation fails.
 
@@ -82,39 +84,45 @@ def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
 
     for k, d in metadata.items():
         if not d or not isinstance(d, dict):
-            d["metadata_error"] = "Empty or non-dict response."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d, "Empty or non-dict response.", "metadata", allow_errors
+            )
             continue
 
         if not all(k in d for k in ["title", "summary", "doi"]):
-            d["metadata_error"] = "Missing keys (title, summary, doi)."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d, "Missing keys (title, summary, doi).", "metadata", allow_errors
+            )
             continue
 
         # Validate individual fields
         if not d["title"]:
-            d["metadata_error"] = "Title cannot be empty."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d, "Title cannot be empty.", "metadata", allow_errors
+            )
             continue
         else:
             d["title"] = sanitize_text(d["title"].strip())
 
         if not d["summary"]:
-            d["metadata_error"] = "Summary cannot be empty."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d, "Summary cannot be empty.", "metadata", allow_errors
+            )
             continue
         else:
             d["summary"] = d["summary"].strip()
 
         if not d["doi"]:
-            d["metadata_error"] = "DOI cannot be empty."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d, "DOI cannot be empty.", "metadata", allow_errors
+            )
             continue
 
         elif d["doi"] != "NULL":
             if not re.match(r"^10\.\d{4,}/[-._;()/:\w\[\]]+$", d["doi"]):
-                d["metadata_error"] = f"Invalid DOI format: {d['doi']}"
-                articles_fail[k] = d
+                articles_fail[k] = handle_error(
+                    d, d["metadata_error"], "metadata", allow_errors
+                )
                 continue
             d["doi"] = d["doi"].strip()
 
@@ -124,7 +132,10 @@ def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
 
 
 def extract_metadata(
-    articles_json: str, system_prompt_path: str = None, model: str = None
+    articles_json: str,
+    system_prompt_path: str = None,
+    model: str = None,
+    allow_qc_errors: bool = False,
 ):
     """
     Extract metadata from an article using Google Gemini.
@@ -133,6 +144,7 @@ def extract_metadata(
         articles_json (str): The path to the JSON files containing the articles to process.
         system_prompt_path (str, optional): The path to the system prompt file.
         model (str, optional): The model to use for metadata extraction. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
+        allow_qc_errors (bool, optional): Whether to allow QC errors without failing the process.
     Returns:
         None.
     """
@@ -141,6 +153,7 @@ def extract_metadata(
     logging.info(f"articles_json      : {articles_json}")
     logging.info(f"system_prompt_path : {system_prompt_path}")
     logging.info(f"model              : {model}")
+    logging.info(f"allow_qc_errors    : {allow_qc_errors}")
     logging.info("-" * 20)
 
     logging.info("⌛ Began extracting metadata")
@@ -171,7 +184,7 @@ def extract_metadata(
     response = validate_json_response(
         response_text, "metadata_extraction", [a["link"] for a in articles]
     )
-    response_pass, response_fail = validate_metadata_response(response)
+    response_pass, response_fail = validate_metadata_response(response, allow_qc_errors)
     logging.info(f"Validated Metadata for {len(response_pass)} articles.")
     logging.debug(f"Screening Pass: {response_pass}")
     logging.info(f"Invalid Metadata for {len(response_fail)} articles.")
@@ -208,7 +221,15 @@ if __name__ == "__main__":
         required=False,
         help="The model to use for metadata extraction. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
     )
+    parser.add_argument(
+        "--allow_qc_errors",
+        type=bool,
+        required=True,
+        help="Whether to allow QC errors without failing the process.",
+    )
 
     args = parser.parse_args()
 
-    extract_metadata(args.articles_json, args.system_prompt_path, args.model)
+    extract_metadata(
+        args.articles_json, args.system_prompt_path, args.model, args.allow_qc_errors
+    )

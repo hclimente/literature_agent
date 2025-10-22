@@ -21,12 +21,13 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 
-def validate_priority_response(response: str) -> str:
+def validate_priority_response(response: str, allow_errors: bool) -> str:
     """
     Validate AI prioritization response. It raises an error if validation fails.
 
     Args:
         response_text (str): The AI response for priority decision
+        allow_errors (bool): Whether to allow errors without failing the process.
 
     Returns:
         tuple: (articles_pass, articles_fail)
@@ -102,12 +103,12 @@ def split_by_qc(articles, qc_pass, qc_fail):
     for a in articles:
         doi = a["doi"]
 
-        if doi in qc_fail:
-            articles_fail.append(a)
-        else:
+        if doi in qc_pass:
             a["priority_decision"] = qc_pass[doi]["decision"]
             a["priority_reasoning"] = qc_pass[doi]["reasoning"]
             articles_pass.append(a)
+        else:
+            articles_fail.append(a)
 
     return articles_pass, articles_fail
 
@@ -117,6 +118,7 @@ def prioritize_articles(
     system_prompt_path: str,
     research_interests_path: str,
     model: str,
+    allow_qc_errors: bool,
 ):
     """
     Prioritizes articles based on user research interests.
@@ -126,6 +128,7 @@ def prioritize_articles(
         system_prompt_path (str): The path to the system prompt file.
         research_interests_path (str): The path to a text file containing the user's research interests.
         model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
+        allow_qc_errors (bool): Whether to allow QC errors without failing the process.
     Returns:
         None. Writes the screening decision to 'decision.txt'.
     """
@@ -142,7 +145,7 @@ def prioritize_articles(
     logging.debug(f"articles: {articles}")
 
     logging.info("Began removing articles with no doi or screened out...")
-    articles = [a for a in articles if a["doi"] != "NULL" and a["screen_decision"]]
+    articles = [a for a in articles if a["doi"] != "NULL" and a["screening_decision"]]
     logging.info("Done removing articles with no doi.")
 
     logging.info("Began reading system prompt...")
@@ -178,7 +181,7 @@ def prioritize_articles(
     response = validate_json_response(
         response_text, "prioritization", [a["doi"] for a in articles]
     )
-    response_pass, response_fail = validate_priority_response(response)
+    response_pass, response_fail = validate_priority_response(response, allow_qc_errors)
     logging.info(f"Validated Priority for {len(response_pass)} articles.")
     logging.debug(f"Priority Pass: {response_pass}")
     logging.info(f"Invalid Priority for {len(response_fail)} articles.")
@@ -218,7 +221,13 @@ if __name__ == "__main__":
         "--model",
         type=str,
         required=True,
-        help="The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
+        help="The model to use for prioritization. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
+    )
+    parser.add_argument(
+        "--allow_qc_errors",
+        type=bool,
+        required=True,
+        help="Whether to allow QC errors without failing the process.",
     )
 
     args = parser.parse_args()
@@ -228,4 +237,5 @@ if __name__ == "__main__":
         args.system_prompt_path,
         args.research_interests_path,
         args.model,
+        args.allow_qc_errors,
     )

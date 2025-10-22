@@ -43,7 +43,8 @@ workflow {
     EXTRACT_METADATA(
         articles,
         file(params.metadata_extraction.system_prompt),
-        params.metadata_extraction.model
+        params.metadata_extraction.model,
+        true
     )
 
     articles_failed_metadata = EXTRACT_METADATA.out.fail
@@ -55,14 +56,16 @@ workflow {
     EXTRACT_METADATA_RETRY(
         articles_failed_metadata,
         file(params.metadata_extraction.system_prompt),
-        params.metadata_extraction.model
+        params.metadata_extraction.model,
+        false
     )
 
     SCREEN(
         EXTRACT_METADATA.out.pass,
         file(params.screening.system_prompt),
         file(params.research_interests),
-        params.screening.model
+        params.screening.model,
+        true
     )
 
     articles_failed_screening = SCREEN.out.fail
@@ -75,14 +78,16 @@ workflow {
         articles_failed_screening,
         file(params.screening.system_prompt),
         file(params.research_interests),
-        params.screening.model
+        params.screening.model,
+        false
     )
 
     PRIORITIZE(
         SCREEN.out.pass,
         file(params.prioritization.system_prompt),
         file(params.research_interests),
-        params.prioritization.model
+        params.prioritization.model,
+        true
     )
 
     articles_failed_prioritization = PRIORITIZE.out.fail
@@ -95,7 +100,8 @@ workflow {
         articles_failed_prioritization,
         file(params.prioritization.system_prompt),
         file(params.research_interests),
-        params.prioritization.model
+        params.prioritization.model,
+        false
     )
 
     prioritized_articles = PRIORITIZE.out.pass

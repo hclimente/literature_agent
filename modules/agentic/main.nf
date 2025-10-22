@@ -8,6 +8,7 @@ process EXTRACT_METADATA {
     path ARTICLES_JSON
     path SYSTEM_PROMPT
     val MODEL
+    val ALLOW_QC_ERRORS
 
     output:
     path "pass_articles.json", emit: pass
@@ -18,7 +19,8 @@ process EXTRACT_METADATA {
     extract_metadata.py \
 --articles_json ${ARTICLES_JSON} \
 --system_prompt_path ${SYSTEM_PROMPT} \
---model ${MODEL}
+--model ${MODEL} \
+--allow_qc_errors ${ALLOW_QC_ERRORS}
     """
 
 }
@@ -36,6 +38,7 @@ process SCREEN {
     path SYSTEM_PROMPT
     path RESEARCH_INTERESTS_PATH
     val MODEL
+    val ALLOW_QC_ERRORS
 
     output:
     path "pass_articles.json", emit: pass
@@ -47,7 +50,8 @@ process SCREEN {
 --articles_json ${ARTICLES_JSON} \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --research_interests_path ${RESEARCH_INTERESTS_PATH} \
---model ${MODEL}
+--model ${MODEL} \
+--allow_qc_errors ${ALLOW_QC_ERRORS}
     """
 }
 
@@ -64,6 +68,7 @@ process PRIORITIZE {
     path SYSTEM_PROMPT
     path RESEARCH_INTERESTS_PATH
     val MODEL
+    val ALLOW_QC_ERRORS
 
     output:
     path "pass_articles.json", emit: pass
@@ -75,6 +80,7 @@ process PRIORITIZE {
 --articles_json ${ARTICLES_JSON} \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --research_interests_path ${RESEARCH_INTERESTS_PATH} \
---model ${MODEL}
+--model ${MODEL} \
+--allow_qc_errors ${ALLOW_QC_ERRORS}
     """
 }
