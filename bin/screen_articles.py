@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import json
 import logging
 import os
 
@@ -20,63 +21,67 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 
-def validate_screening_response(response_text: str) -> str:
+def validate_screening_response(response: str) -> str:
     """
     Validate AI screening response. It raises an error if validation fails.
 
     Args:
-        response_text (str): The AI response for screening decision
+        response (str): The parsed AI response for screening decision
 
     Returns:
         str: "true" or "false"
     """
-    response = validate_json_response(
-        response_text, "screening", ["decision", "reasoning"]
-    )
+    for d in response.values():
+        if not d or not isinstance(d, dict):
+            raise ValidationError("screening", d, "Empty or non-dict response.")
 
-    decision = response["decision"]
-
-    if isinstance(decision, bool):
-        decision = "true" if decision else "false"
-    else:
-        if not isinstance(decision, str):
+        if not all(k in d for k in ["decision", "reasoning"]):
             raise ValidationError(
                 "screening",
-                decision,
-                "Screening decision should be a string.",
+                d,
+                "Missing keys (decision and/or reasoning).",
             )
 
-        # allow for some common variations
-        decision_mappings = {
-            "true": "true",
-            "true.": "true",
-            '"true"': "true",
-            "'true'": "true",
-            "false": "false",
-            "false.": "false",
-            '"false"': "false",
-            "'false'": "false",
-        }
+        decision = d["decision"]
 
-        decision = decision.strip().lower()
+        if isinstance(decision, bool):
+            decision = "true" if decision else "false"
+        else:
+            if not isinstance(decision, str):
+                raise ValidationError(
+                    "screening",
+                    decision,
+                    "Screening decision should be a string.",
+                )
 
-        try:
-            decision = decision_mappings[decision]
-        except KeyError:
-            raise ValidationError(
-                "screening",
-                decision,
-                "Invalid screening value. Expected 'true' or 'false'.",
-            )
+            # allow for some common variations
+            decision_mappings = {
+                "true": "true",
+                "true.": "true",
+                '"true"': "true",
+                "'true'": "true",
+                "false": "false",
+                "false.": "false",
+                '"false"': "false",
+                "'false'": "false",
+            }
 
-    return decision
+            decision = decision.strip().lower()
+
+            try:
+                decision = decision_mappings[decision]
+            except KeyError:
+                raise ValidationError(
+                    "screening",
+                    decision,
+                    "Invalid screening value. Expected 'true' or 'false'.",
+                )
+
+    return response
 
 
-def screen_article(
-    title: str,
-    journal_name: str,
-    summary: str,
-    doi: str,
+def screen_articles(
+    articles_json: str,
     system_prompt_path: str,
     research_interests_path: str,
     model: str,
@@ -85,10 +90,7 @@ def screen_article(
     Screens articles based on user research interests.
 
     Args:
-        title (str): The title of the article to screen.
-        journal_name (str): The journal name of the article to screen.
-        summary (str): The summary of the article to screen.
-        doi (str): The DOI of the article to screen.
+        articles_json (str):
         system_prompt_path (str): The path to the system prompt file.
         research_interests_path (str): The path to a text file containing the user's research interests.
         model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
@@ -96,15 +98,20 @@ def screen_article(
         None. Writes the screening decision to 'decision.txt'.
     """
     logging.info("-" * 20)
-    logging.info("screen_article called with the following arguments:")
-    logging.info(f"title                   : {title}")
-    logging.info(f"journal_name            : {journal_name}")
-    logging.info(f"summary                 : {summary}")
-    logging.info(f"doi                     : {doi}")
+    logging.info("screen_articles called with the following arguments:")
+    logging.info(f"articles_json           : {articles_json}")
+    logging.info(f"system_prompt_path      : {system_prompt_path}")
     logging.info(f"research_interests_path : {research_interests_path}")
+    logging.info(f"model                   : {model}")
     logging.info("-" * 20)
 
-    logging.info(f"⌛ Began screening article '{title}' from {journal_name}")
+    articles = json.load(open(articles_json, "r"))
+    logging.info(f"Loaded {len(articles)} articles.")
+    logging.debug(f"articles: {articles}")
+
+    logging.info("Began removing articles with no doi...")
+    articles = [a for a in articles if a["doi"] != "NULL"]
+    logging.info("Done removing articles with no doi.")
 
     logging.info("Began reading system prompt...")
     with open(system_prompt_path, "r") as f:
@@ -119,40 +126,34 @@ def screen_article(
     system_instruction = system_instruction.format(
         research_interests=research_interests
     )
-    logging.info(f"System prompt: {system_instruction}")
+    logging.debug(f"System prompt: {system_instruction}")
 
-    prompt = f"""
-Here is the article to screen:
-    Title: {title}
-    Journal: {journal_name}
-    Summary: {summary}
-    doi: {doi}
-"""
-    logging.info(f"User prompt: {prompt}")
+    prompt = f"Here are the articles to screen: {articles}"
+    logging.debug(f"User prompt: {prompt}")
 
-    response = client.models.generate_content(
+    response_text = client.models.generate_content(
         model=model,
-        contents=f"Here is the article to screen:{prompt}",
+        contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
-            thinking_config=types.ThinkingConfig(include_thoughts=True),
+            thinking_config=types.ThinkingConfig(include_thoughts=False),
             tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
         ),
     )
 
-    decision = validate_screening_response(response.text)
-    logging.info(f"Decision: {decision}")
+    response_text = response_text.text.strip()
+    response = validate_json_response(
+        response_text, "screening", [a["doi"] for a in articles]
+    )
+    decisions = validate_screening_response(response)
+    for a in articles:
+        doi = a["doi"]
+        a["screen_decision"] = decisions[doi]["decision"]
+        a["screen_reasoning"] = decisions[doi]["reasoning"]
 
-    with open("decision.txt", "w") as f:
-        f.write(decision)
+    json.dump(articles, open("screened_articles.json", "w"), indent=2)
 
-    for part in response.candidates[0].content.parts:
-        if not part.text:
-            continue
-        if part.thought:
-            logging.info(f"Thought: {part.text}")
-
-    logging.info(f"✅ Done screening article '{title}' from {journal_name}")
+    logging.info("✅ Done screening articles.")
 
 
 if __name__ == "__main__":
@@ -162,28 +163,10 @@ if __name__ == "__main__":
         description="Screen articles based on user research interests."
     )
     parser.add_argument(
-        "--title",
+        "--articles_json",
         type=str,
         required=True,
-        help="The title of the article to screen.",
-    )
-    parser.add_argument(
-        "--journal_name",
-        type=str,
-        required=True,
-        help="The journal name of the article to screen.",
-    )
-    parser.add_argument(
-        "--summary",
-        type=str,
-        required=True,
-        help="The summary of the article to screen.",
-    )
-    parser.add_argument(
-        "--doi",
-        type=str,
-        required=True,
-        help="The DOI of the article to screen.",
+        help="The path to the JSON files containing the articles to process.",
     )
     parser.add_argument(
         "--system_prompt_path",
@@ -206,11 +189,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    screen_article(
-        args.title,
-        args.journal_name,
-        args.summary,
-        args.doi,
+    screen_articles(
+        args.articles_json,
         args.system_prompt_path,
         args.research_interests_path,
         args.model,

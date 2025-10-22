@@ -92,7 +92,7 @@ def fetch_rss_feed(
             continue
 
         article_data = {
-            "journal": journal_name,
+            "journal_name": journal_name,
             "link": item.link,
             "date": item_date_naive.date().isoformat(),
             "raw_contents": str(item),
@@ -101,8 +101,8 @@ def fetch_rss_feed(
 
         logging.info(f"✅ Done processing item {i + 1}.")
 
-    with open("articles.json", "w") as f:
-        json.dump(articles, f, indent=2)
+    if articles:
+        json.dump(articles, open("articles.json", "w"), indent=2)
 
     logging.info("✅ Done writing articles to JSON.")
 

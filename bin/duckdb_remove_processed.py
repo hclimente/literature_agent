@@ -60,8 +60,10 @@ def remove_unprocessed_articles(
 
     unprocessed_articles = [a for a in articles if (a["link"],) in result]
 
-    with open(output_json, "w") as f:
-        json.dump(unprocessed_articles, f, indent=2)
+    if unprocessed_articles:
+        json.dump(
+            unprocessed_articles, open("unprocessed_articles.json", "w"), indent=2
+        )
 
 
 if __name__ == "__main__":

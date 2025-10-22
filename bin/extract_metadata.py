@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import json
 import logging
 import os
 import re
@@ -31,7 +32,7 @@ def sanitize_text(text: str) -> str:
     """
     special_characters = ["\\", '"', "'", "$"]
     for char in special_characters:
-        text = text.replace(char, f"\\{char}")
+        text = text.strip().replace(char, f"\\{char}")
 
     return text
 
@@ -41,45 +42,63 @@ def validate_metadata_response(metadata: str) -> tuple[str, str, str]:
     Validate and parse AI metadata response. It raises an error if validation fails.
 
     Args:
-        metadata (str): The AI response containing pipe-separated metadata
+        metadata (str): The AI response in JSON format.
 
     Returns:
         tuple[str, str, str]: (title, summary, doi)
     """
-    response = validate_json_response(
-        metadata, "metadata_extraction", ["title", "summary", "doi"]
-    )
 
-    title = response["title"].strip()
-    summary = response["summary"].strip()
-    doi = response["doi"].strip()
+    for d in metadata.values():
+        if not d or not isinstance(d, dict):
+            raise ValidationError(
+                "metadata_extraction", d, "Empty or non-dict response."
+            )
 
-    if not metadata or not isinstance(metadata, str):
-        raise ValidationError("metadata", metadata, "Empty or non-string response.")
+        if not all(k in d for k in ["title", "summary", "doi"]):
+            raise ValidationError(
+                "metadata_extraction",
+                d,
+                "Missing keys (title, summary, doi).",
+            )
 
-    # Validate individual fields
-    if not title:
-        raise ValidationError("title", title, "Title cannot be empty.")
+        # Validate individual fields
+        if not d["title"]:
+            raise ValidationError(
+                "metadata_extraction", d["title"], "Title cannot be empty."
+            )
+        else:
+            d["title"] = sanitize_text(d["title"].strip())
 
-    if not summary:
-        raise ValidationError("summary", summary, "Summary cannot be empty.")
+        if not d["summary"]:
+            raise ValidationError(
+                "metadata_extraction", d["summary"], "Summary cannot be empty."
+            )
+        else:
+            d["summary"] = d["summary"].strip()
 
-    # Validate DOI format if not NULL
-    if doi != "NULL":
-        if not re.match(r"^10\.\d{4,}/[-._;()/:\w\[\]]+$", doi):
-            raise ValidationError("doi", doi, "Invalid DOI format.")
+        if not d["doi"]:
+            raise ValidationError(
+                "metadata_extraction", d["doi"], "DOI cannot be empty."
+            )
 
-    return title, summary, doi
+        elif d["doi"] != "NULL":
+            if not re.match(r"^10\.\d{4,}/[-._;()/:\w\[\]]+$", d["doi"]):
+                raise ValidationError(
+                    "metadata_extraction", d["doi"], "Invalid DOI format."
+                )
+            d["doi"] = d["doi"].strip()
+
+    return metadata
 
 
 def extract_metadata(
-    article_file: str, system_prompt_path: str = None, model: str = None
+    articles_json: str, system_prompt_path: str = None, model: str = None
 ):
     """
     Extract metadata from an article using Google Gemini.
 
     Args:
-        article_file (str): The path to the article file to process.
+        articles_json (str): The path to the JSON files containing the articles to process.
         system_prompt_path (str, optional): The path to the system prompt file.
         model (str, optional): The model to use for metadata extraction. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
     Returns:
@@ -87,38 +106,26 @@ def extract_metadata(
     """
     logging.info("-" * 20)
     logging.info("extract_metadata called with the following arguments:")
-    logging.info(f"article_file       : {article_file}")
+    logging.info(f"articles_json      : {articles_json}")
     logging.info(f"system_prompt_path : {system_prompt_path}")
     logging.info(f"model              : {model}")
     logging.info("-" * 20)
 
     logging.info("⌛ Began extracting metadata")
 
-    with open(article_file, "r") as f:
-        raw_metadata = f.read()
+    articles = json.load(open(articles_json, "r"))
+    logging.info(f"Loaded {len(articles)} articles.")
+    logging.debug(f"articles: {articles}")
 
-    lines = raw_metadata.strip().split("\n")
-    journal_name = ""
-    link = ""
-    date = ""
-
-    for line in lines:
-        if line.startswith("Journal: "):
-            journal_name = line.replace("Journal: ", "").strip()
-        elif line.startswith("URL: "):
-            link = line.replace("URL: ", "").strip()
-        elif line.startswith("Date: "):
-            date = line.replace("Date: ", "").strip()
-
-    logging.info(f"Article raw medatada:\n{raw_metadata}")
-    logging.info(f"Extracted - Journal: {journal_name}, URL: {link}, Date: {date}")
+    raw_metadata = {a["link"]: a["raw_contents"] for a in articles}
+    logging.debug(f"raw_metadata: {raw_metadata}")
 
     with open(system_prompt_path, "r") as f:
         system_instruction = f.read()
 
-    response = client.models.generate_content(
+    response_text = client.models.generate_content(
         model=model,
-        contents=f"This is the article to extract the metadata from:\n{raw_metadata}",
+        contents=f"These are the articles to extract the metadata from:\n{raw_metadata}",
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             thinking_config=types.ThinkingConfig(include_thoughts=False),
@@ -126,15 +133,22 @@ def extract_metadata(
         ),
     )
 
-    metadata = response.text.strip()
-    logging.info(f"Extracted Metadata: {metadata}")
+    response_text = response_text.text.strip()
+    logging.info(f"Extracted Metadata: {response_text}")
 
-    title, summary, doi = validate_metadata_response(metadata)
-    title = sanitize_text(title)
-    summary = sanitize_text(summary)
+    response = validate_json_response(
+        response_text, "metadata_extraction", [a["link"] for a in articles]
+    )
+    metadata = validate_metadata_response(response)
+    logging.info(f"Validated Metadata: {metadata}")
 
-    with open("metadata.tsv", "w") as f:
-        f.write(f"{title}\t{summary}\t{link}\t{journal_name}\t{date}\t{doi}\n")
+    for a in articles:
+        url = a["link"]
+        a["title"] = metadata[url]["title"]
+        a["summary"] = metadata[url]["summary"]
+        a["doi"] = metadata[url]["doi"]
+
+    json.dump(articles, open("articles_with_metadata.json", "w"), indent=2)
 
     logging.info("✅ Done extracting metadata")
 
@@ -146,10 +160,10 @@ if __name__ == "__main__":
         description="Extract DOIs from articles using Google Gemini. Outputs a TSV file with title and DOI."
     )
     parser.add_argument(
-        "--article_file",
+        "--articles_json",
         type=str,
         required=True,
-        help="The path to the article file to process.",
+        help="The path to the JSON files containing the articles to process.",
     )
     parser.add_argument(
         "--system_prompt_path",
@@ -166,4 +180,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    extract_metadata(args.article_file, args.system_prompt_path, args.model)
+    extract_metadata(args.articles_json, args.system_prompt_path, args.model)

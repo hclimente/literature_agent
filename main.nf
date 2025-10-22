@@ -1,4 +1,11 @@
+import groovy.json.JsonOutput
+
 include { fromQuery; sqlInsert; sqlExecute } from 'plugin/nf-sqldb'
+
+def toJson(article_list) {
+    def json = JsonOutput.toJson(article_list)
+    return JsonOutput.prettyPrint(json)
+}
 
 process CREATE_ARTICLES_DB {
 
@@ -54,7 +61,7 @@ process REMOVE_PROCESSED {
     path DB_PATH
 
     output:
-    path "unprocessed_articles.json"
+    path "unprocessed_articles.json", optional: true
 
     """
     duckdb_remove_processed.py \
@@ -69,10 +76,9 @@ process REMOVE_PROCESSED {
 process SAVE {
 
     container 'community.wave.seqera.io/library/duckdb:1.4.1--3daff581f117ee85'
-    tag { TITLE }
 
     input:
-    tuple val(TITLE), val(SUMMARY), val(LINK), val(JOURNAL_NAME), val(DATE), val(DOI), val(SCREENING_DECISION), val(PRIORITY)
+    path ARTICLES_JSON
     path DB_PATH
 
     output:
@@ -82,14 +88,7 @@ process SAVE {
     """
     duckdb_insert_article.py \
 --db_path ${DB_PATH} \
---title "${TITLE}" \
---summary "${SUMMARY}" \
---link "${LINK}" \
---journal_name "${JOURNAL_NAME}" \
---date "${DATE}" \
---doi "${DOI}" \
---screening_decision "${SCREENING_DECISION}" \
---priority "${PRIORITY}"
+--articles_json ${ARTICLES_JSON}
     """
 
 }
@@ -120,17 +119,17 @@ process EXTRACT_METADATA {
     secret 'GOOGLE_API_KEY'
 
     input:
-    file ARTICLE_FILE
+    file ARTICLES_JSON
     file SYSTEM_PROMPT
     val MODEL
 
     output:
-    file "metadata.tsv"
+    file "articles_with_metadata.json"
 
     script:
     """
     extract_metadata.py \
---article_file ${ARTICLE_FILE} \
+--articles_json ${ARTICLES_JSON} \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --model ${MODEL}
     """
@@ -144,33 +143,23 @@ process SCREEN {
     secret 'GOOGLE_API_KEY'
     secret 'SPRINGER_META_API_KEY'
     secret 'USER_EMAIL'
-    tag { TITLE }
 
     input:
-    tuple val(TITLE), val(SUMMARY), val(LINK), val(JOURNAL_NAME), val(DATE), val(DOI)
+    path ARTICLES_JSON
     file SYSTEM_PROMPT
     path RESEARCH_INTERESTS_PATH
     val MODEL
 
     output:
-    tuple val(TITLE), val(SUMMARY), val(LINK), val(JOURNAL_NAME), val(DATE), val(DOI), env(SCREENING_DECISION)
+    path "screened_articles.json"
 
     script:
     """
-    if [ "${DOI}" = "NULL" ]; then
-        SCREENING_DECISION="NULL"
-    else
-        screen_articles.py \
---title "${TITLE}" \
---summary "${SUMMARY}" \
---journal_name "${JOURNAL_NAME}" \
---doi "${DOI}" \
+    screen_articles.py \
+--articles_json ${ARTICLES_JSON} \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --research_interests_path ${RESEARCH_INTERESTS_PATH} \
 --model ${MODEL}
-
-        SCREENING_DECISION=`cat decision.txt`
-    fi
     """
 }
 
@@ -181,33 +170,23 @@ process PRIORITIZE {
     secret 'GOOGLE_API_KEY'
     secret 'SPRINGER_META_API_KEY'
     secret 'USER_EMAIL'
-    tag { TITLE }
 
     input:
-    tuple val(TITLE), val(SUMMARY), val(LINK), val(JOURNAL_NAME), val(DATE), val(DOI), val(SCREENING_DECISION)
+    path ARTICLES_JSON
     path SYSTEM_PROMPT
     path RESEARCH_INTERESTS_PATH
     val MODEL
 
     output:
-    tuple val(TITLE), val(SUMMARY), val(LINK), val(JOURNAL_NAME), val(DATE), val(DOI), val(SCREENING_DECISION), env(PRIORITY)
+    path "prioritized_articles.json"
 
     script:
     """
-    if [ "${SCREENING_DECISION}" = "NULL" ] || [ "${SCREENING_DECISION}" = "false" ]; then
-        PRIORITY="NULL"
-    else
-        prioritize_articles.py \
---title "${TITLE}" \
---summary "${SUMMARY}" \
---journal_name "${JOURNAL_NAME}" \
---doi "${DOI}" \
+    prioritize_articles.py \
+--articles_json ${ARTICLES_JSON} \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --research_interests_path ${RESEARCH_INTERESTS_PATH} \
 --model ${MODEL}
-
-        PRIORITY=`cat priority.txt`
-    fi
     """
 }
 
@@ -227,28 +206,38 @@ workflow {
         FETCH_ARTICLES(journals, 50)
         REMOVE_PROCESSED(FETCH_ARTICLES.out, database_path)
 
+        articles = REMOVE_PROCESSED.out
+            .splitJson()
+            .flatten()
+            .buffer(size: params.batch_size, remainder: true)
+            .map { batch ->
+                def json = toJson(batch)
+                def tempFile = File.createTempFile("articles_", ".json")
+                tempFile.write(json)
+                return file(tempFile)
+            }
+            .take(2)
+
         EXTRACT_METADATA(
-            REMOVE_PROCESSED.out.flatten().splitJson().flatten() | take(5),
+            articles,
             file(params.metadata_extraction.system_prompt),
             params.metadata_extraction.model
         )
 
-        // articles = EXTRACT_METADATA.out |
-        //     splitCsv(sep: '\t')
-        // SCREEN(
-        //     articles,
-        //     file(params.screening.system_prompt),
-        //     file(params.research_interests),
-        //     params.screening.model
-        // )
-        // PRIORITIZE(
-        //     SCREEN.out,
-        //     file(params.prioritization.system_prompt),
-        //     file(params.research_interests),
-        //     params.prioritization.model
-        // )
+        SCREEN(
+            EXTRACT_METADATA.out,
+            file(params.screening.system_prompt),
+            file(params.research_interests),
+            params.screening.model
+        )
+        PRIORITIZE(
+            SCREEN.out,
+            file(params.prioritization.system_prompt),
+            file(params.research_interests),
+            params.prioritization.model
+        )
 
-        // SAVE(PRIORITIZE.out, database_path)
+        SAVE(PRIORITIZE.out, database_path)
 
         // all_saved = SAVE.out.collect()
         // UPDATE_TIMESTAMPS(all_saved, database_path)
