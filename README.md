@@ -1,4 +1,4 @@
-# Literature agent
+# Papers mate
 
 An agentic-workflow to assist researchers in staying up-to-date with literature by leveraging LLMs and tools to screen and prioritize scientific articles.
 
