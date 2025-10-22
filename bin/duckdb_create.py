@@ -65,8 +65,10 @@ def create_articles_table(db_path: str):
                 link TEXT NOT NULL,
                 date DATE NOT NULL,
                 doi TEXT DEFAULT NULL,
-                screened BOOLEAN DEFAULT NULL,
+                screen_decision BOOLEAN DEFAULT NULL,
+                screen_reasoning TEXT DEFAULT NULL,
                 priority priority_level DEFAULT NULL,
+                priority_reasoning TEXT DEFAULT NULL,
                 FOREIGN KEY (journal_name) REFERENCES sources(name),
                 PRIMARY KEY (link)
             )
