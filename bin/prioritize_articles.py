@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import validate_json_response
+from utils import validate_json_response, handle_error
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -38,20 +38,26 @@ def validate_priority_response(response: str, allow_errors: bool) -> str:
 
     for k, d in response.items():
         if not d or not isinstance(d, dict):
-            d["priority_error"] = "Empty or non-dict response."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d, "Empty or non-dict response.", "priority", allow_errors
+            )
             continue
 
         if not all(k in d for k in ["decision", "reasoning"]):
-            d["priority_error"] = "Missing keys (decision and/or reasoning)."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d,
+                "Missing keys (decision and/or reasoning).",
+                "priority",
+                allow_errors,
+            )
             continue
 
         priority = d["decision"]
 
         if not priority or not isinstance(priority, str):
-            d["priority_error"] = "Empty or non-string response."
-            articles_fail[k] = d
+            articles_fail[k] = handle_error(
+                d, "Empty or non-string response.", "priority", allow_errors
+            )
             continue
 
         # allow for some common variations
@@ -75,10 +81,12 @@ def validate_priority_response(response: str, allow_errors: bool) -> str:
         try:
             priority = priority_mappings[priority]
         except KeyError:
-            d["priority_error"] = (
-                "Invalid priority value. Expected 'low', 'medium', or 'high'."
+            articles_fail[k] = handle_error(
+                d,
+                "Invalid priority value. Expected 'low', 'medium', or 'high'.",
+                "priority",
+                allow_errors,
             )
-            articles_fail[k] = d
             continue
 
         d["decision"] = priority
