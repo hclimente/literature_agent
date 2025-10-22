@@ -1,7 +1,5 @@
 import groovy.json.JsonOutput
 
-include { fromQuery; sqlInsert; sqlExecute } from 'plugin/nf-sqldb'
-
 def toJson(article_list) {
     def json = JsonOutput.toJson(article_list)
     return JsonOutput.prettyPrint(json)
@@ -26,6 +24,26 @@ process CREATE_ARTICLES_DB {
 --journals_tsv ${JOURNALS_TSV} \
 --db_path ${DB_FILENAME} \
 --global_cutoff_date "2025-10-01"
+    """
+
+}
+
+process FETCH_JOURNALS {
+
+    container 'community.wave.seqera.io/library/duckdb:1.4.1--3daff581f117ee85'
+
+    input:
+    path DB_PATH
+
+    output:
+    path "journals.tsv"
+
+    """
+    duckdb_extract_fields.py \
+--db_path ${DB_PATH} \
+--table sources \
+--columns "name, feed_url, last_checked" \
+--output_tsv journals.tsv
     """
 
 }
@@ -196,52 +214,51 @@ workflow {
 
     if ( !database_path.exists() ) {
         println "Articles database not found. Creating a new one at: ${database_path}."
-        println "Upon completion, re-run the workflow."
         db_filename = database_path.name
         db_parent_dir = database_path.parent
         CREATE_ARTICLES_DB(file(params.journal_list), db_filename, db_parent_dir)
-    } else {
-        journals = channel.fromQuery("SELECT name, feed_url, last_checked FROM sources", db: 'articles_db')
-
-        FETCH_ARTICLES(journals, 50)
-        REMOVE_PROCESSED(FETCH_ARTICLES.out, database_path)
-
-        articles = REMOVE_PROCESSED.out
-            .splitJson()
-            .flatten()
-            .buffer(size: params.batch_size, remainder: true)
-            .map { batch ->
-                def json = toJson(batch)
-                def tempFile = File.createTempFile("articles_", ".json")
-                tempFile.write(json)
-                return file(tempFile)
-            }
-            .take(2)
-
-        EXTRACT_METADATA(
-            articles,
-            file(params.metadata_extraction.system_prompt),
-            params.metadata_extraction.model
-        )
-
-        SCREEN(
-            EXTRACT_METADATA.out,
-            file(params.screening.system_prompt),
-            file(params.research_interests),
-            params.screening.model
-        )
-        PRIORITIZE(
-            SCREEN.out,
-            file(params.prioritization.system_prompt),
-            file(params.research_interests),
-            params.prioritization.model
-        )
-
-        SAVE(PRIORITIZE.out, database_path)
-
-        // all_saved = SAVE.out.collect()
-        // UPDATE_TIMESTAMPS(all_saved, database_path)
-
+        database_path = CREATE_ARTICLES_DB.out
     }
+
+    FETCH_JOURNALS(database_path)
+
+    journals = FETCH_JOURNALS.out
+        .splitCsv(header: true, sep: '\t')
+
+    FETCH_ARTICLES(journals, 50)
+    REMOVE_PROCESSED(FETCH_ARTICLES.out, database_path)
+
+    articles = REMOVE_PROCESSED.out
+        .splitJson()
+        .flatten()
+        .buffer(size: params.batch_size, remainder: true)
+        .map { batch ->
+            def json = toJson(batch)
+            def tempFile = File.createTempFile("articles_", ".json")
+            tempFile.write(json)
+            return file(tempFile)
+        }
+
+    EXTRACT_METADATA(
+        articles,
+        file(params.metadata_extraction.system_prompt),
+        params.metadata_extraction.model
+    )
+
+    SCREEN(
+        EXTRACT_METADATA.out,
+        file(params.screening.system_prompt),
+        file(params.research_interests),
+        params.screening.model
+    )
+    PRIORITIZE(
+        SCREEN.out,
+        file(params.prioritization.system_prompt),
+        file(params.research_interests),
+        params.prioritization.model
+    )
+
+    SAVE(PRIORITIZE.out, database_path)
+    UPDATE_TIMESTAMPS(SAVE.out.collect(), database_path)
 
 }
