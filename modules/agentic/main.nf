@@ -1,0 +1,78 @@
+process EXTRACT_METADATA {
+
+    container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
+    label 'gemini_api'
+    secret 'GOOGLE_API_KEY'
+
+    input:
+    path ARTICLES_JSON
+    path SYSTEM_PROMPT
+    val MODEL
+
+    output:
+    path "pass_articles.json", emit: pass
+    path "failed_articles.json", optional: true, emit: fail
+
+    script:
+    """
+    extract_metadata.py \
+--articles_json ${ARTICLES_JSON} \
+--system_prompt_path ${SYSTEM_PROMPT} \
+--model ${MODEL}
+    """
+
+}
+
+process SCREEN {
+
+    container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
+    label 'gemini_api'
+    secret 'GOOGLE_API_KEY'
+    secret 'SPRINGER_META_API_KEY'
+    secret 'USER_EMAIL'
+
+    input:
+    path ARTICLES_JSON
+    path SYSTEM_PROMPT
+    path RESEARCH_INTERESTS_PATH
+    val MODEL
+
+    output:
+    path "screened_articles.json"
+
+    script:
+    """
+    screen_articles.py \
+--articles_json ${ARTICLES_JSON} \
+--system_prompt_path ${SYSTEM_PROMPT} \
+--research_interests_path ${RESEARCH_INTERESTS_PATH} \
+--model ${MODEL}
+    """
+}
+
+process PRIORITIZE {
+
+    container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
+    label 'gemini_api'
+    secret 'GOOGLE_API_KEY'
+    secret 'SPRINGER_META_API_KEY'
+    secret 'USER_EMAIL'
+
+    input:
+    path ARTICLES_JSON
+    path SYSTEM_PROMPT
+    path RESEARCH_INTERESTS_PATH
+    val MODEL
+
+    output:
+    path "prioritized_articles.json"
+
+    script:
+    """
+    prioritize_articles.py \
+--articles_json ${ARTICLES_JSON} \
+--system_prompt_path ${SYSTEM_PROMPT} \
+--research_interests_path ${RESEARCH_INTERESTS_PATH} \
+--model ${MODEL}
+    """
+}

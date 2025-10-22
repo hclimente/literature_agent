@@ -178,7 +178,7 @@ def extract_metadata(
     )
 
     json.dump(articles_pass, open("pass_articles.json", "w"), indent=2)
-    json.dump(articles_fail, open("failed_articles.json", "w", indent=2))
+    json.dump(articles_fail, open("failed_articles.json", "w"), indent=2)
     logging.info("✅ Done extracting metadata")
 
 
