@@ -122,7 +122,6 @@ def llm_query(
     system_prompt_path: str,
     model: str,
     api_key: str,
-    stage: str,
     research_interests_path: str = None,
     llm_tools: list = [],
 ):

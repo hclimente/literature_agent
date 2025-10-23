@@ -138,7 +138,6 @@ def extract_metadata(
         system_prompt_path=system_prompt_path,
         model=model,
         api_key=os.environ.get("GOOGLE_API_KEY"),
-        stage=STAGE,
         llm_tools=[types.Tool(google_search=types.GoogleSearch())],
     )
 

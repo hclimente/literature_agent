@@ -87,7 +87,6 @@ def prioritize_articles(
         system_prompt_path=system_prompt_path,
         model=model,
         api_key=os.environ.get("GOOGLE_API_KEY"),
-        stage=STAGE,
         research_interests_path=research_interests_path,
         llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
     )
