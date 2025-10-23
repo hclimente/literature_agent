@@ -46,7 +46,9 @@ def handle_error(
     Handle error messages.
 
     Args:
+        d (dict): The dictionary containing the article data.
         error_msg (str): The error message to handle.
+        stage (str): The processing stage (e.g., "screening", "priority").
         allow_errors (bool): Whether to allow errors without raising exceptions.
     Returns:
         str: The handled error message.
@@ -89,9 +91,7 @@ def split_by_qc(
                     a[f"{stage}_{f}"] = qc_pass[k][f]
                 except KeyError:
                     error_msg = f"Expected field '{f}' not found in QC pass data."
-                    a[f"{stage}_error"] = handle_error(
-                        a, error_msg, stage, allow_errors
-                    )
+                    a = handle_error(a, error_msg, stage, allow_errors)
                     articles_fail.append(a)
                     continue
 
