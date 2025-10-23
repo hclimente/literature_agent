@@ -8,7 +8,7 @@ import re
 from google import genai
 from google.genai import types
 
-from utils import validate_json_response, handle_error
+from utils import handle_error, split_by_qc, validate_json_response
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -35,33 +35,6 @@ def sanitize_text(text: str) -> str:
         text = text.strip().replace(char, f"\\{char}")
 
     return text
-
-
-def split_by_qc(articles, metadata_pass, metadata_fail):
-    """
-    Split articles into those that passed and failed metadata QC.
-    Args:
-        articles (list): List of articles.
-        metadata_pass (dict): Metadata that passed validation.
-        metadata_fail (dict): Metadata that failed validation.
-    Returns:
-        tuple: (articles_pass, articles_fail)
-    """
-    articles_pass = []
-    articles_fail = []
-
-    for a in articles:
-        url = a["link"]
-
-        if url in metadata_fail:
-            articles_fail.append(a)
-        else:
-            a["title"] = metadata_pass[url]["title"]
-            a["summary"] = metadata_pass[url]["summary"]
-            a["doi"] = metadata_pass[url]["doi"]
-            articles_pass.append(a)
-
-    return articles_pass, articles_fail
 
 
 def validate_metadata_response(
@@ -190,7 +163,14 @@ def extract_metadata(
     logging.info(f"Invalid Metadata for {len(response_fail)} articles.")
     logging.debug(f"Screening Fail: {response_fail}")
 
-    articles_pass, articles_fail = split_by_qc(articles, response_pass, response_fail)
+    articles_pass, articles_fail = split_by_qc(
+        articles,
+        response_pass,
+        response_fail,
+        "metadata",
+        allow_qc_errors,
+        merge_key="link",
+    )
 
     json.dump(articles_pass, open("metadata_pass.json", "w"), indent=2)
     json.dump(articles_fail, open("metadata_fail.json", "w"), indent=2)

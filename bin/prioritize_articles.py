@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import validate_json_response, handle_error
+from utils import handle_error, split_by_qc, validate_json_response
 
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
@@ -95,32 +95,6 @@ def validate_priority_response(response: str, allow_errors: bool) -> str:
     return articles_pass, articles_fail
 
 
-def split_by_qc(articles, qc_pass, qc_fail):
-    """
-    Split articles into those that passed and failed priotization QC.
-    Args:
-        articles (list): List of articles.
-        qc_pass (dict): Metadata that passed validation.
-        qc_faill (dict): Metadata that failed validation.
-    Returns:
-        tuple: (articles_pass, articles_fail)
-    """
-    articles_pass = []
-    articles_fail = []
-
-    for a in articles:
-        doi = a["doi"]
-
-        if doi in qc_pass:
-            a["priority_decision"] = qc_pass[doi]["decision"]
-            a["priority_reasoning"] = qc_pass[doi]["reasoning"]
-            articles_pass.append(a)
-        else:
-            articles_fail.append(a)
-
-    return articles_pass, articles_fail
-
-
 def prioritize_articles(
     articles_json: str,
     system_prompt_path: str,
@@ -195,7 +169,9 @@ def prioritize_articles(
     logging.info(f"Invalid Priority for {len(response_fail)} articles.")
     logging.debug(f"Priority Fail: {response_fail}")
 
-    articles_pass, articles_fail = split_by_qc(articles, response_pass, response_fail)
+    articles_pass, articles_fail = split_by_qc(
+        articles, response_pass, response_fail, "priority", allow_qc_errors
+    )
     json.dump(articles_pass, open("priority_pass.json", "w"), indent=2)
     json.dump(articles_fail, open("priority_fail.json", "w"), indent=2)
     logging.info("✅ Done prioritizing articles.")

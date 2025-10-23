@@ -38,16 +38,6 @@ def validate_json_response(
             "Response should be a dictionary.",
         )
 
-    expected_fields = set(expected_fields)
-    actual_fields = set(response.keys())
-    if actual_fields != expected_fields:
-        diff = actual_fields.symmetric_difference(expected_fields)
-        raise ValidationError(
-            stage,
-            response,
-            f"Response fields do not match expected fields. Symmetric diff: {diff}.",
-        )
-
     return response
 
 
@@ -69,6 +59,36 @@ def handle_error(
         return d
     else:
         raise ValidationError(stage, d, error_msg)
+
+
+def split_by_qc(articles, qc_pass, qc_fail, stage, allow_errors, merge_key="doi"):
+    """
+    Split articles into those that passed and failed screening QC.
+    Args:
+        articles (list): List of articles.
+        qc_pass (dict): Articles that passed validation.
+        qc_faill (dict): Articles that failed validation.
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
+    articles_pass = []
+    articles_fail = []
+
+    for a in articles:
+        k = a[merge_key]
+
+        if k in qc_pass:
+            a["screening_decision"] = qc_pass[k]["decision"]
+            a["screening_reasoning"] = qc_pass[k]["reasoning"]
+            articles_pass.append(a)
+        elif k in qc_fail:
+            articles_fail.append(a)
+        else:
+            error_msg = "Article DOI not found in either QC pass or fail lists."
+            a[f"{stage}_error"] = handle_error(a, error_msg, stage, allow_errors)
+            articles_fail.append(a)
+
+    return articles_pass, articles_fail
 
 
 class ValidationError(Exception):
