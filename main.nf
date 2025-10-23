@@ -29,9 +29,13 @@ workflow {
 
     if ( !database_path.exists() ) {
         println "Articles database not found. Creating a new one at: ${database_path}."
+
+        global_cutoff_date = new Date(System.currentTimeMillis() - 15 * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
+        println "Global cutoff date set to: ${global_cutoff_date}"
+
         db_filename = database_path.name
         db_parent_dir = database_path.parent
-        CREATE_ARTICLES_DB(file(params.journal_list), db_filename, db_parent_dir)
+        CREATE_ARTICLES_DB(file(params.journal_list), db_filename, db_parent_dir, global_cutoff_date)
         database_path = CREATE_ARTICLES_DB.out
     }
 
