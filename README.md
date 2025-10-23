@@ -1,4 +1,4 @@
-# Papers please
+# Papers, please: Agentic framework for literature triaging
 
 An agentic-workflow to assist researchers in staying up-to-date with literature by leveraging LLMs and tools to screen and prioritize scientific articles.
 
