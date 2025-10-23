@@ -20,7 +20,6 @@ def processBatch(channel, batch_size) {
         .flatten()
         .buffer(size: batch_size, remainder: true)
         .map { batch -> toJson(batch) }
-        .take(10)
 }
 
 workflow {
