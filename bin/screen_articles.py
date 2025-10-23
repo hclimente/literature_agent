@@ -4,21 +4,14 @@ import json
 import logging
 import os
 
-from google import genai
-from google.genai import types
-
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import handle_error, split_by_qc, validate_json_response
+from utils import (
+    llm_query,
+    validate_decision_response,
+    validate_llm_response,
+)
 
-API_KEY = os.environ.get("GOOGLE_API_KEY")
-
-if not API_KEY:
-    raise ValueError(
-        "GOOGLE_API_KEY environment variable not found. "
-        "Did you remember to `nextflow secrets set GOOGLE_API_KEY '<YOUR-KEY'`?"
-    )
-
-client = genai.Client(api_key=API_KEY)
+STAGE = "screening"
 
 
 def validate_screening_response(response: str, allow_errors: bool) -> str:
@@ -33,68 +26,18 @@ def validate_screening_response(response: str, allow_errors: bool) -> str:
         tuple: (articles_pass, articles_fail)
     """
 
-    articles_pass = {}
-    articles_fail = {}
+    screening_mappings = {
+        "true": "true",
+        "true.": "true",
+        '"true"': "true",
+        "'true'": "true",
+        "false": "false",
+        "false.": "false",
+        '"false"': "false",
+        "'false'": "false",
+    }
 
-    for k, d in response.items():
-        if not d or not isinstance(d, dict):
-            articles_fail[k] = handle_error(
-                d, "Empty or non-dict response.", "screening", allow_errors
-            )
-            continue
-
-        if not all(k in d for k in ["decision", "reasoning"]):
-            articles_fail[k] = handle_error(
-                d,
-                "Missing keys (decision and/or reasoning).",
-                "screening",
-                allow_errors,
-            )
-            continue
-
-        decision = d["decision"]
-
-        if isinstance(decision, bool):
-            decision = "true" if decision else "false"
-        else:
-            if not isinstance(decision, str):
-                articles_fail[k] = handle_error(
-                    d,
-                    "Screening decision should be a string.",
-                    "screening",
-                    allow_errors,
-                )
-                continue
-
-            # allow for some common variations
-            decision_mappings = {
-                "true": "true",
-                "true.": "true",
-                '"true"': "true",
-                "'true'": "true",
-                "false": "false",
-                "false.": "false",
-                '"false"': "false",
-                "'false'": "false",
-            }
-
-            decision = decision.strip().lower()
-
-            try:
-                decision = decision_mappings[decision]
-            except KeyError:
-                articles_fail[k] = handle_error(
-                    d,
-                    "Invalid screening value. Expected 'true' or 'false'.",
-                    "screening",
-                    allow_errors,
-                )
-                continue
-
-        d["decision"] = decision
-        articles_pass[k] = d
-
-    return articles_pass, articles_fail
+    return validate_decision_response(response, allow_errors, STAGE, screening_mappings)
 
 
 def screen_articles(
@@ -133,51 +76,20 @@ def screen_articles(
     articles = [a for a in articles if a["metadata_doi"] != "NULL"]
     logging.info("Done removing articles with no doi.")
 
-    logging.info("Began reading system prompt...")
-    with open(system_prompt_path, "r") as f:
-        system_instruction = f.read().strip()
-    logging.info("Done reading system prompt.")
-
-    logging.info("Began reading research interests...")
-    with open(research_interests_path, "r") as F:
-        research_interests = F.read().strip()
-    logging.info("Done reading research interests.")
-
-    system_instruction = system_instruction.format(
-        research_interests=research_interests
-    )
-    logging.debug(f"System prompt: {system_instruction}")
-
-    prompt = f"Here are the articles to screen: {articles}"
-    logging.debug(f"User prompt: {prompt}")
-
-    response_text = client.models.generate_content(
+    response_text = llm_query(
+        articles=articles,
+        system_prompt_path=system_prompt_path,
         model=model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            thinking_config=types.ThinkingConfig(include_thoughts=False),
-            tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
-        ),
+        api_key=os.environ.get("GOOGLE_API_KEY"),
+        stage=STAGE,
+        research_interests_path=research_interests_path,
+        llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
     )
 
-    response_text = response_text.text.strip()
-    response = validate_json_response(response_text, "screening")
-    response_pass, response_fail = validate_screening_response(
-        response, allow_qc_errors
+    validate_llm_response(
+        articles, response_text, allow_qc_errors, validate_screening_response, STAGE
     )
-    logging.info(f"Validated Screening for {len(response_pass)} articles.")
-    logging.debug(f"Screening Pass: {response_pass}")
-    logging.info(f"Invalid Screening for {len(response_fail)} articles.")
-    logging.debug(f"Screening Fail: {response_fail}")
 
-    articles_pass, articles_fail = split_by_qc(
-        articles, response_pass, response_fail, "screening", allow_qc_errors
-    )
-    logging.debug(f"Articles Pass: {articles_pass}")
-    logging.debug(f"Articles Fail: {articles_fail}")
-    json.dump(articles_pass, open("screening_pass.json", "w"), indent=2)
-    json.dump(articles_fail, open("screening_fail.json", "w"), indent=2)
     logging.info("✅ Done screening articles.")
 
 

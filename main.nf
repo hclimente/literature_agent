@@ -39,7 +39,6 @@ workflow {
         .flatten()
         .buffer(size: params.batch_size, remainder: true)
         .map { batch -> toJson(batch) }
-        .take(2)
 
     EXTRACT_METADATA(
         articles,

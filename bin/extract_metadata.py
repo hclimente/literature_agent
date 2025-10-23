@@ -5,20 +5,15 @@ import logging
 import os
 import re
 
-from google import genai
 from google.genai import types
 
-from utils import handle_error, split_by_qc, validate_json_response
+from utils import (
+    handle_error,
+    llm_query,
+    validate_llm_response,
+)
 
-API_KEY = os.environ.get("GOOGLE_API_KEY")
-
-if not API_KEY:
-    raise ValueError(
-        "GOOGLE_API_KEY environment variable not found. "
-        "Did you remember to `nextflow secrets set GOOGLE_API_KEY '<YOUR-KEY'`?"
-    )
-
-client = genai.Client(api_key=API_KEY)
+STAGE = "metadata"
 
 
 def sanitize_text(text: str) -> str:
@@ -138,41 +133,24 @@ def extract_metadata(
     raw_metadata = {a["link"]: a["raw_contents"] for a in articles}
     logging.debug(f"raw_metadata: {raw_metadata}")
 
-    with open(system_prompt_path, "r") as f:
-        system_instruction = f.read()
-
-    response_text = client.models.generate_content(
+    response_text = llm_query(
+        articles=raw_metadata,
+        system_prompt_path=system_prompt_path,
         model=model,
-        contents=f"These are the articles to extract the metadata from:\n{raw_metadata}",
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            thinking_config=types.ThinkingConfig(include_thoughts=False),
-            tools=[types.Tool(google_search=types.GoogleSearch())],
-        ),
+        api_key=os.environ.get("GOOGLE_API_KEY"),
+        stage=STAGE,
+        llm_tools=[types.Tool(google_search=types.GoogleSearch())],
     )
 
-    response_text = response_text.text.strip()
-    logging.info(f"Extracted Metadata: {response_text}")
-
-    response = validate_json_response(response_text, "metadata")
-    response_pass, response_fail = validate_metadata_response(response, allow_qc_errors)
-    logging.info(f"Validated Metadata for {len(response_pass)} articles.")
-    logging.debug(f"Screening Pass: {response_pass}")
-    logging.info(f"Invalid Metadata for {len(response_fail)} articles.")
-    logging.debug(f"Screening Fail: {response_fail}")
-
-    articles_pass, articles_fail = split_by_qc(
+    validate_llm_response(
         articles,
-        response_pass,
-        response_fail,
-        "metadata",
+        response_text,
         allow_qc_errors,
+        validate_metadata_response,
+        STAGE,
         merge_key="link",
         expected_fields=["title", "summary", "doi"],
     )
-
-    json.dump(articles_pass, open("metadata_pass.json", "w"), indent=2)
-    json.dump(articles_fail, open("metadata_fail.json", "w"), indent=2)
     logging.info("✅ Done extracting metadata")
 
 

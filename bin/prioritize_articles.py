@@ -4,21 +4,14 @@ import json
 import logging
 import os
 
-from google import genai
-from google.genai import types
-
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import handle_error, split_by_qc, validate_json_response
+from utils import (
+    llm_query,
+    validate_decision_response,
+    validate_llm_response,
+)
 
-API_KEY = os.environ.get("GOOGLE_API_KEY")
-
-if not API_KEY:
-    raise ValueError(
-        "GOOGLE_API_KEY environment variable not found. "
-        "Did you remember to `nextflow secrets set GOOGLE_API_KEY '<YOUR-KEY'`?"
-    )
-
-client = genai.Client(api_key=API_KEY)
+STAGE = "priority"
 
 
 def validate_priority_response(response: str, allow_errors: bool) -> str:
@@ -33,66 +26,23 @@ def validate_priority_response(response: str, allow_errors: bool) -> str:
         tuple: (articles_pass, articles_fail)
     """
 
-    articles_pass = {}
-    articles_fail = {}
+    # allow for some common variations
+    priority_mappings = {
+        "low": "low",
+        "low.": "low",
+        '"low"': "low",
+        "'low'": "low",
+        "medium": "medium",
+        "medium.": "medium",
+        '"medium"': "medium",
+        "'medium'": "medium",
+        "high": "high",
+        "high.": "high",
+        '"high"': "high",
+        "'high'": "high",
+    }
 
-    for k, d in response.items():
-        if not d or not isinstance(d, dict):
-            articles_fail[k] = handle_error(
-                d, "Empty or non-dict response.", "priority", allow_errors
-            )
-            continue
-
-        if not all(k in d for k in ["decision", "reasoning"]):
-            articles_fail[k] = handle_error(
-                d,
-                "Missing keys (decision and/or reasoning).",
-                "priority",
-                allow_errors,
-            )
-            continue
-
-        priority = d["decision"]
-
-        if not priority or not isinstance(priority, str):
-            articles_fail[k] = handle_error(
-                d, "Empty or non-string response.", "priority", allow_errors
-            )
-            continue
-
-        # allow for some common variations
-        priority_mappings = {
-            "low": "low",
-            "low.": "low",
-            '"low"': "low",
-            "'low'": "low",
-            "medium": "medium",
-            "medium.": "medium",
-            '"medium"': "medium",
-            "'medium'": "medium",
-            "high": "high",
-            "high.": "high",
-            '"high"': "high",
-            "'high'": "high",
-        }
-
-        priority = priority.strip().lower()
-
-        try:
-            priority = priority_mappings[priority]
-        except KeyError:
-            articles_fail[k] = handle_error(
-                d,
-                "Invalid priority value. Expected 'low', 'medium', or 'high'.",
-                "priority",
-                allow_errors,
-            )
-            continue
-
-        d["decision"] = priority
-        articles_pass[k] = d
-
-    return articles_pass, articles_fail
+    return validate_decision_response(response, allow_errors, STAGE, priority_mappings)
 
 
 def prioritize_articles(
@@ -132,48 +82,20 @@ def prioritize_articles(
     ]
     logging.info("Done removing articles with no doi.")
 
-    logging.info("Began reading system prompt...")
-    with open(system_prompt_path, "r") as f:
-        system_instruction = f.read().strip()
-    logging.info("Done reading system prompt.")
-
-    logging.info("Began reading research interests...")
-    with open(research_interests_path, "r") as F:
-        research_interests = F.read().strip()
-    logging.info("Done reading research interests.")
-
-    system_instruction = system_instruction.format(
-        research_interests=research_interests
-    )
-    logging.debug(f"System prompt: {system_instruction}")
-
-    prompt = f"Here are the articles to prioritize:{articles}"
-    logging.debug(f"User prompt: {prompt}")
-
-    response_text = client.models.generate_content(
+    response_text = llm_query(
+        articles=articles,
+        system_prompt_path=system_prompt_path,
         model=model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            thinking_config=types.ThinkingConfig(include_thoughts=False),
-            tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
-        ),
+        api_key=os.environ.get("GOOGLE_API_KEY"),
+        stage=STAGE,
+        research_interests_path=research_interests_path,
+        llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
     )
 
-    response_text = response_text.text.strip()
-    logging.debug(f"Response: {response_text}")
-    response = validate_json_response(response_text, "prioritization")
-    response_pass, response_fail = validate_priority_response(response, allow_qc_errors)
-    logging.info(f"Validated Priority for {len(response_pass)} articles.")
-    logging.debug(f"Priority Pass: {response_pass}")
-    logging.info(f"Invalid Priority for {len(response_fail)} articles.")
-    logging.debug(f"Priority Fail: {response_fail}")
-
-    articles_pass, articles_fail = split_by_qc(
-        articles, response_pass, response_fail, "priority", allow_qc_errors
+    validate_llm_response(
+        articles, response_text, allow_qc_errors, validate_priority_response, STAGE
     )
-    json.dump(articles_pass, open("priority_pass.json", "w"), indent=2)
-    json.dump(articles_fail, open("priority_fail.json", "w"), indent=2)
+
     logging.info("✅ Done prioritizing articles.")
 
 
