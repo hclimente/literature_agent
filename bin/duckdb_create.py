@@ -4,6 +4,8 @@ import logging
 
 import duckdb
 
+from common import add_duckdb_arguments
+
 
 def create_journal_table(journals_tsv: str, db_path: str, global_cutoff_date: str):
     logging.info("-" * 20)
@@ -82,12 +84,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Fetch articles from RSS feeds and store them in a database."
     )
-    parser.add_argument(
-        "--db_path",
-        type=str,
-        default="literature_agent.duckdb",
-        help="Path to the SQLite database file.",
-    )
+    parser = add_duckdb_arguments(parser)
     parser.add_argument(
         "--journals_tsv",
         type=str,

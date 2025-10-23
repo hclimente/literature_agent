@@ -14,15 +14,27 @@ def toJson(article_list) {
     return file(tempFile)
 }
 
+def processBatch(channel, batch_size) {
+    return channel
+        .splitJson()
+        .flatten()
+        .buffer(size: batch_size, remainder: true)
+        .map { batch -> toJson(batch) }
+}
+
 workflow {
 
     database_path = file(params.database_path)
 
     if ( !database_path.exists() ) {
         println "Articles database not found. Creating a new one at: ${database_path}."
+
+        global_cutoff_date = new Date(System.currentTimeMillis() - 15 * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
+        println "Global cutoff date set to: ${global_cutoff_date}"
+
         db_filename = database_path.name
         db_parent_dir = database_path.parent
-        CREATE_ARTICLES_DB(file(params.journal_list), db_filename, db_parent_dir)
+        CREATE_ARTICLES_DB(file(params.journal_list), db_filename, db_parent_dir, global_cutoff_date)
         database_path = CREATE_ARTICLES_DB.out
     }
 
@@ -32,29 +44,22 @@ workflow {
         .splitCsv(header: true, sep: '\t')
 
     FETCH_ARTICLES(journals, 50)
-    REMOVE_PROCESSED(FETCH_ARTICLES.out, database_path)
 
-    articles = REMOVE_PROCESSED.out
-        .splitJson()
-        .flatten()
-        .buffer(size: params.batch_size, remainder: true)
-        .map { batch -> toJson(batch) }
+
+    REMOVE_PROCESSED(
+        processBatch(FETCH_ARTICLES.out, 1000),
+        database_path
+    )
 
     EXTRACT_METADATA(
-        articles,
+        processBatch(REMOVE_PROCESSED.out, params.batch_size),
         file(params.metadata_extraction.system_prompt),
         params.metadata_extraction.model,
         true
     )
 
-    articles_failed_metadata = EXTRACT_METADATA.out.fail
-        .splitJson()
-        .flatten()
-        .buffer(size: params.batch_size, remainder: true)
-        .map { batch -> toJson(batch) }
-
     EXTRACT_METADATA_RETRY(
-        articles_failed_metadata,
+        processBatch(EXTRACT_METADATA.out.fail, params.batch_size),
         file(params.metadata_extraction.system_prompt),
         params.metadata_extraction.model,
         false
@@ -68,14 +73,8 @@ workflow {
         true
     )
 
-    articles_failed_screening = SCREEN.out.fail
-        .splitJson()
-        .flatten()
-        .buffer(size: params.batch_size, remainder: true)
-        .map { batch -> toJson(batch) }
-
     SCREEN_RETRY(
-        articles_failed_screening,
+        processBatch(SCREEN.out.fail, params.batch_size),
         file(params.screening.system_prompt),
         file(params.research_interests),
         params.screening.model,
@@ -90,14 +89,8 @@ workflow {
         true
     )
 
-    articles_failed_prioritization = PRIORITIZE.out.fail
-        .splitJson()
-        .flatten()
-        .buffer(size: params.batch_size, remainder: true)
-        .map { batch -> toJson(batch) }
-
     PRIORITIZE_RETRY(
-        articles_failed_prioritization,
+        processBatch(PRIORITIZE.out.fail, params.batch_size),
         file(params.prioritization.system_prompt),
         file(params.research_interests),
         params.prioritization.model,

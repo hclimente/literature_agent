@@ -5,20 +5,19 @@ import logging
 import os
 import re
 
-from google import genai
 from google.genai import types
 
-from utils import validate_json_response, handle_error
+from common.llm import llm_query
+from common.parsers import (
+    add_articles_json_argument,
+    add_llm_arguments,
+)
+from common.validation import (
+    handle_error,
+    validate_llm_response,
+)
 
-API_KEY = os.environ.get("GOOGLE_API_KEY")
-
-if not API_KEY:
-    raise ValueError(
-        "GOOGLE_API_KEY environment variable not found. "
-        "Did you remember to `nextflow secrets set GOOGLE_API_KEY '<YOUR-KEY'`?"
-    )
-
-client = genai.Client(api_key=API_KEY)
+STAGE = "metadata"
 
 
 def sanitize_text(text: str) -> str:
@@ -35,33 +34,6 @@ def sanitize_text(text: str) -> str:
         text = text.strip().replace(char, f"\\{char}")
 
     return text
-
-
-def split_by_qc(articles, metadata_pass, metadata_fail):
-    """
-    Split articles into those that passed and failed metadata QC.
-    Args:
-        articles (list): List of articles.
-        metadata_pass (dict): Metadata that passed validation.
-        metadata_fail (dict): Metadata that failed validation.
-    Returns:
-        tuple: (articles_pass, articles_fail)
-    """
-    articles_pass = []
-    articles_fail = []
-
-    for a in articles:
-        url = a["link"]
-
-        if url in metadata_fail:
-            articles_fail.append(a)
-        else:
-            a["title"] = metadata_pass[url]["title"]
-            a["summary"] = metadata_pass[url]["summary"]
-            a["doi"] = metadata_pass[url]["doi"]
-            articles_pass.append(a)
-
-    return articles_pass, articles_fail
 
 
 def validate_metadata_response(
@@ -165,35 +137,23 @@ def extract_metadata(
     raw_metadata = {a["link"]: a["raw_contents"] for a in articles}
     logging.debug(f"raw_metadata: {raw_metadata}")
 
-    with open(system_prompt_path, "r") as f:
-        system_instruction = f.read()
-
-    response_text = client.models.generate_content(
+    response_text = llm_query(
+        articles=raw_metadata,
+        system_prompt_path=system_prompt_path,
         model=model,
-        contents=f"These are the articles to extract the metadata from:\n{raw_metadata}",
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            thinking_config=types.ThinkingConfig(include_thoughts=False),
-            tools=[types.Tool(google_search=types.GoogleSearch())],
-        ),
+        api_key=os.environ.get("GOOGLE_API_KEY"),
+        llm_tools=[types.Tool(google_search=types.GoogleSearch())],
     )
 
-    response_text = response_text.text.strip()
-    logging.info(f"Extracted Metadata: {response_text}")
-
-    response = validate_json_response(
-        response_text, "metadata_extraction", [a["link"] for a in articles]
+    validate_llm_response(
+        articles,
+        response_text,
+        allow_qc_errors,
+        validate_metadata_response,
+        STAGE,
+        merge_key="link",
+        expected_fields=["title", "summary", "doi"],
     )
-    response_pass, response_fail = validate_metadata_response(response, allow_qc_errors)
-    logging.info(f"Validated Metadata for {len(response_pass)} articles.")
-    logging.debug(f"Screening Pass: {response_pass}")
-    logging.info(f"Invalid Metadata for {len(response_fail)} articles.")
-    logging.debug(f"Screening Fail: {response_fail}")
-
-    articles_pass, articles_fail = split_by_qc(articles, response_pass, response_fail)
-
-    json.dump(articles_pass, open("metadata_pass.json", "w"), indent=2)
-    json.dump(articles_fail, open("metadata_fail.json", "w"), indent=2)
     logging.info("✅ Done extracting metadata")
 
 
@@ -203,30 +163,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Extract DOIs from articles using Google Gemini. Outputs a TSV file with title and DOI."
     )
-    parser.add_argument(
-        "--articles_json",
-        type=str,
-        required=True,
-        help="The path to the JSON files containing the articles to process.",
-    )
-    parser.add_argument(
-        "--system_prompt_path",
-        type=str,
-        required=False,
-        help="The path to the system prompt file.",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        required=False,
-        help="The model to use for metadata extraction. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
-    )
-    parser.add_argument(
-        "--allow_qc_errors",
-        type=bool,
-        required=True,
-        help="Whether to allow QC errors without failing the process.",
-    )
+
+    parser = add_articles_json_argument(parser)
+    parser = add_llm_arguments(parser)
 
     args = parser.parse_args()
 

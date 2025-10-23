@@ -1,0 +1,56 @@
+import argparse
+
+
+def add_articles_json_argument(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--articles_json",
+        type=str,
+        required=True,
+        help="The path to the JSON file containing the articles to process.",
+    )
+
+    return parser
+
+
+def add_duckdb_arguments(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--db_path",
+        type=str,
+        default="papers_please.duckdb",
+        help="Path to the DuckDB database file.",
+    )
+
+    return parser
+
+
+def add_llm_arguments(
+    parser: argparse.ArgumentParser, include_research_interests: bool = False
+):
+    parser.add_argument(
+        "--system_prompt_path",
+        type=str,
+        required=False,
+        help="The path to the system prompt file.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=False,
+        help="The model to use for metadata extraction. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
+    )
+    parser.add_argument(
+        "--allow_qc_errors",
+        type=bool,
+        required=True,
+        help="Whether to allow QC errors without failing the process.",
+    )
+
+    if include_research_interests:
+        parser.add_argument(
+            "--research_interests_path",
+            type=str,
+            required=True,
+            help="The path to a text file containing the user's research interests.",
+        )
+
+    return parser

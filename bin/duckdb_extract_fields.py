@@ -3,6 +3,8 @@ import argparse
 
 import duckdb
 
+from common.parsers import add_duckdb_arguments
+
 
 def extract_fields(
     db_path: str,
@@ -44,12 +46,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Extract specific fields from a DuckDB table based on a condition."
     )
-    parser.add_argument(
-        "--db_path",
-        type=str,
-        default="literature_agent.duckdb",
-        help="Path to the DuckDB database file.",
-    )
+    parser = add_duckdb_arguments(parser)
     parser.add_argument(
         "--table",
         type=str,
