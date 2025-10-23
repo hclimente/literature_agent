@@ -7,9 +7,13 @@ import re
 
 from google.genai import types
 
-from utils import (
+from common.llm import llm_query
+from common.parsers import (
+    add_articles_json_argument,
+    add_llm_arguments,
+)
+from common.validation import (
     handle_error,
-    llm_query,
     validate_llm_response,
 )
 
@@ -138,7 +142,6 @@ def extract_metadata(
         system_prompt_path=system_prompt_path,
         model=model,
         api_key=os.environ.get("GOOGLE_API_KEY"),
-        stage=STAGE,
         llm_tools=[types.Tool(google_search=types.GoogleSearch())],
     )
 
@@ -160,30 +163,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Extract DOIs from articles using Google Gemini. Outputs a TSV file with title and DOI."
     )
-    parser.add_argument(
-        "--articles_json",
-        type=str,
-        required=True,
-        help="The path to the JSON files containing the articles to process.",
-    )
-    parser.add_argument(
-        "--system_prompt_path",
-        type=str,
-        required=False,
-        help="The path to the system prompt file.",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        required=False,
-        help="The model to use for metadata extraction. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
-    )
-    parser.add_argument(
-        "--allow_qc_errors",
-        type=bool,
-        required=True,
-        help="Whether to allow QC errors without failing the process.",
-    )
+
+    parser = add_articles_json_argument(parser)
+    parser = add_llm_arguments(parser)
 
     args = parser.parse_args()
 

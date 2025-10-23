@@ -5,6 +5,11 @@ import logging
 
 import duckdb
 
+from common.parsers import (
+    add_articles_json_argument,
+    add_duckdb_arguments,
+)
+
 
 def remove_unprocessed_articles(
     db_path: str,
@@ -12,7 +17,7 @@ def remove_unprocessed_articles(
     output_json: str,
 ) -> None:
     """
-
+    Remove articles that have already been processed from a JSON file using a DuckDB database.
 
     Args:
         db_path (str): Path to the DuckDB database file.
@@ -72,18 +77,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Remove articles that have already been processed from a TSV file using a DuckDB database."
     )
-    parser.add_argument(
-        "--db_path",
-        type=str,
-        required=True,
-        help="Path to the DuckDB database file.",
-    )
-    parser.add_argument(
-        "--articles_json",
-        type=str,
-        required=True,
-        help="Path to the TSV file containing articles.",
-    )
+
+    parser = add_articles_json_argument(parser)
+    parser = add_duckdb_arguments(parser)
     parser.add_argument(
         "--output_json",
         type=str,

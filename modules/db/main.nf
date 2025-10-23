@@ -7,6 +7,7 @@ process CREATE_ARTICLES_DB {
     path JOURNALS_TSV
     val DB_FILENAME
     val DB_PARENT_DIR
+    val GLOBAL_CUTOFF_DATE
 
     output:
     path "${DB_FILENAME}"
@@ -16,7 +17,7 @@ process CREATE_ARTICLES_DB {
     duckdb_create.py \
 --journals_tsv ${JOURNALS_TSV} \
 --db_path ${DB_FILENAME} \
---global_cutoff_date "2025-10-01"
+--global_cutoff_date ${GLOBAL_CUTOFF_DATE}
     """
 
 }
