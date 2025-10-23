@@ -4,12 +4,17 @@ import json
 import logging
 import os
 
-from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
-from utils import (
-    llm_query,
+from common.llm import llm_query
+from common.parsers import (
+    add_articles_json_argument,
+    add_llm_arguments,
+)
+from common.validation import (
+    get_common_variations,
     validate_decision_response,
     validate_llm_response,
 )
+from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
 
 STAGE = "screening"
 
@@ -26,17 +31,7 @@ def validate_screening_response(response: str, allow_errors: bool) -> str:
         tuple: (articles_pass, articles_fail)
     """
 
-    screening_mappings = {
-        "true": "true",
-        "true.": "true",
-        '"true"': "true",
-        "'true'": "true",
-        "false": "false",
-        "false.": "false",
-        '"false"': "false",
-        "'false'": "false",
-    }
-
+    screening_mappings = get_common_variations(["true", "false"])
     return validate_decision_response(response, allow_errors, STAGE, screening_mappings)
 
 
@@ -98,36 +93,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Screen articles based on user research interests."
     )
-    parser.add_argument(
-        "--articles_json",
-        type=str,
-        required=True,
-        help="The path to the JSON files containing the articles to process.",
-    )
-    parser.add_argument(
-        "--system_prompt_path",
-        type=str,
-        required=True,
-        help="The path to the system prompt file.",
-    )
-    parser.add_argument(
-        "--research_interests_path",
-        type=str,
-        required=True,
-        help="The path to a text file containing the user's research interests.",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        required=True,
-        help="The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.",
-    )
-    parser.add_argument(
-        "--allow_qc_errors",
-        type=bool,
-        required=True,
-        help="Whether to allow QC errors without failing the process.",
-    )
+    parser = add_articles_json_argument(parser)
+    parser = add_llm_arguments(parser, include_research_interests=True)
 
     args = parser.parse_args()
 

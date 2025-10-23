@@ -5,6 +5,11 @@ import logging
 
 import duckdb
 
+from common.parsers import (
+    add_articles_json_argument,
+    add_duckdb_arguments,
+)
+
 
 def insert_article(
     db_path: str,
@@ -67,18 +72,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Insert articles from a TSV file into a DuckDB database."
     )
-    parser.add_argument(
-        "--db_path",
-        type=str,
-        required=True,
-        help="Path to the DuckDB database file.",
-    )
-    parser.add_argument(
-        "--articles_json",
-        type=str,
-        required=True,
-        help="Path to the JSON file containing articles.",
-    )
+
+    parser = add_articles_json_argument(parser)
+    parser = add_duckdb_arguments(parser)
 
     args = parser.parse_args()
 
