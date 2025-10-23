@@ -47,7 +47,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--db_path",
         type=str,
-        default="literature_agent.duckdb",
+        default="papers_please.duckdb",
         help="Path to the DuckDB database file.",
     )
     parser.add_argument(
