@@ -14,6 +14,15 @@ def toJson(article_list) {
     return file(tempFile)
 }
 
+def processBatch(channel, batch_size) {
+    return channel
+        .splitJson()
+        .flatten()
+        .buffer(size: batch_size, remainder: true)
+        .map { batch -> toJson(batch) }
+        .take(2)
+}
+
 workflow {
 
     database_path = file(params.database_path)
@@ -34,11 +43,7 @@ workflow {
     FETCH_ARTICLES(journals, 50)
     REMOVE_PROCESSED(FETCH_ARTICLES.out, database_path)
 
-    articles = REMOVE_PROCESSED.out
-        .splitJson()
-        .flatten()
-        .buffer(size: params.batch_size, remainder: true)
-        .map { batch -> toJson(batch) }
+    articles = processBatch(REMOVE_PROCESSED.out, params.batch_size)
 
     EXTRACT_METADATA(
         articles,
@@ -47,11 +52,7 @@ workflow {
         true
     )
 
-    articles_failed_metadata = EXTRACT_METADATA.out.fail
-        .splitJson()
-        .flatten()
-        .buffer(size: params.batch_size, remainder: true)
-        .map { batch -> toJson(batch) }
+    articles_failed_metadata = processBatch(EXTRACT_METADATA.out.fail, params.batch_size)
 
     EXTRACT_METADATA_RETRY(
         articles_failed_metadata,
@@ -68,11 +69,7 @@ workflow {
         true
     )
 
-    articles_failed_screening = SCREEN.out.fail
-        .splitJson()
-        .flatten()
-        .buffer(size: params.batch_size, remainder: true)
-        .map { batch -> toJson(batch) }
+    articles_failed_screening = processBatch(SCREEN.out.fail, params.batch_size)
 
     SCREEN_RETRY(
         articles_failed_screening,
@@ -90,11 +87,7 @@ workflow {
         true
     )
 
-    articles_failed_prioritization = PRIORITIZE.out.fail
-        .splitJson()
-        .flatten()
-        .buffer(size: params.batch_size, remainder: true)
-        .map { batch -> toJson(batch) }
+    articles_failed_prioritization = processBatch(PRIORITIZE.out.fail, params.batch_size)
 
     PRIORITIZE_RETRY(
         articles_failed_prioritization,
