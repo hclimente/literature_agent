@@ -3,6 +3,8 @@ import argparse
 
 import duckdb
 
+from common.parsers import add_duckdb_arguments
+
 
 def update_duckdb_field(db_path: str, table: str, set_clause: str, where_clause: str):
     """
@@ -26,12 +28,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Update a specific field in a DuckDB table for multiple records."
     )
-    parser.add_argument(
-        "--db_path",
-        type=str,
-        default="papers_please.duckdb",
-        help="Path to the DuckDB database file.",
-    )
+    parser = add_duckdb_arguments(parser)
     parser.add_argument(
         "--table",
         type=str,
