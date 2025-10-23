@@ -11,6 +11,7 @@ from common.parsers import (
 )
 from common.validation import (
     get_common_variations,
+    save_validated_responses,
     validate_decision_response,
     validate_llm_response,
 )
@@ -80,8 +81,16 @@ def screen_articles(
         llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
     )
 
-    validate_llm_response(
-        articles, response_text, allow_qc_errors, validate_screening_response, STAGE
+    response_pass, response_fail = validate_llm_response(
+        response_text, allow_qc_errors, validate_screening_response, STAGE
+    )
+
+    save_validated_responses(
+        articles,
+        response_pass,
+        response_fail,
+        allow_qc_errors,
+        STAGE,
     )
 
     logging.info("✅ Done screening articles.")

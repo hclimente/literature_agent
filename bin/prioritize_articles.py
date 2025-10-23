@@ -11,6 +11,7 @@ from common.parsers import (
 )
 from common.validation import (
     get_common_variations,
+    save_validated_responses,
     validate_decision_response,
     validate_llm_response,
 )
@@ -68,7 +69,9 @@ def prioritize_articles(
 
     logging.info("Began removing articles with no doi or screened out...")
     articles = [
-        a for a in articles if a["metadata_doi"] != "NULL" and a["screening_decision"]
+        a
+        for a in articles
+        if a["metadata_doi"] != "NULL" and a["screening_decision"] == "true"
     ]
     logging.info("Done removing articles with no doi.")
 
@@ -81,8 +84,16 @@ def prioritize_articles(
         llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
     )
 
-    validate_llm_response(
-        articles, response_text, allow_qc_errors, validate_priority_response, STAGE
+    response_pass, response_fail = validate_llm_response(
+        response_text, allow_qc_errors, validate_priority_response, STAGE
+    )
+
+    save_validated_responses(
+        articles,
+        response_pass,
+        response_fail,
+        allow_qc_errors,
+        STAGE,
     )
 
     logging.info("✅ Done prioritizing articles.")

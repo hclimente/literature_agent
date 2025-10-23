@@ -14,6 +14,7 @@ from common.parsers import (
 )
 from common.validation import (
     handle_error,
+    save_validated_responses,
     validate_llm_response,
 )
 
@@ -145,15 +146,24 @@ def extract_metadata(
         llm_tools=[types.Tool(google_search=types.GoogleSearch())],
     )
 
-    validate_llm_response(
+    response_pass, response_fail = validate_llm_response(
         articles,
         response_text,
         allow_qc_errors,
         validate_metadata_response,
         STAGE,
+    )
+
+    save_validated_responses(
+        articles,
+        response_pass,
+        response_fail,
+        allow_qc_errors,
+        STAGE,
         merge_key="link",
         expected_fields=["title", "summary", "doi"],
     )
+
     logging.info("✅ Done extracting metadata")
 
 

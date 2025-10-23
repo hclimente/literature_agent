@@ -115,12 +115,10 @@ class ValidationError(Exception):
 
 
 def validate_llm_response(
-    articles: list,
     response_text: str,
     allow_qc_errors: bool,
     internal_validator: callable,
     stage: str,
-    **kwargs,
 ) -> None:
     logging.info("Began validating screening response...")
     response = validate_json_response(response_text, stage)
@@ -132,6 +130,17 @@ def validate_llm_response(
     logging.info(f"Invalid Screening for {len(response_fail)} articles.")
     logging.debug(f"Screening Fail: {response_fail}")
 
+    return response_pass, response_fail
+
+
+def save_validated_responses(
+    articles: list,
+    response_pass: dict,
+    response_fail: dict,
+    allow_qc_errors: bool,
+    stage: str,
+    **kwargs,
+) -> None:
     articles_pass, articles_fail = split_by_qc(
         articles, response_pass, response_fail, stage, allow_qc_errors, **kwargs
     )
