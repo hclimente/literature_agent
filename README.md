@@ -1,4 +1,4 @@
-# Papers mate
+# Papers please
 
 An agentic-workflow to assist researchers in staying up-to-date with literature by leveraging LLMs and tools to screen and prioritize scientific articles.
 
@@ -28,5 +28,7 @@ nextflow secrets set GOOGLE_API_KEY "<YOUR_GOOGLE_AI_STUDIO_KEY>"
 Adjust the journals you want to monitor and your research interests. See examples [here](config/journals.tsv) and [here](config/research_interests.md), respectively. Then, simply run:
 
 ```bash
-nextflow run hclimente/literature_agent --journal_list <your_journals.tsv> --research_interests <your_interests.md>
+nextflow run hclimente/nf-papers-please \
+    --journal_list <your_journals.tsv> \
+    --research_interests <your_interests.md>
 ```
