@@ -127,7 +127,9 @@ def prioritize_articles(
     logging.debug(f"articles: {articles}")
 
     logging.info("Began removing articles with no doi or screened out...")
-    articles = [a for a in articles if a["doi"] != "NULL" and a["screening_decision"]]
+    articles = [
+        a for a in articles if a["metadata_doi"] != "NULL" and a["screening_decision"]
+    ]
     logging.info("Done removing articles with no doi.")
 
     logging.info("Began reading system prompt...")
@@ -160,9 +162,7 @@ def prioritize_articles(
 
     response_text = response_text.text.strip()
     logging.debug(f"Response: {response_text}")
-    response = validate_json_response(
-        response_text, "prioritization", [a["doi"] for a in articles]
-    )
+    response = validate_json_response(response_text, "prioritization")
     response_pass, response_fail = validate_priority_response(response, allow_qc_errors)
     logging.info(f"Validated Priority for {len(response_pass)} articles.")
     logging.debug(f"Priority Pass: {response_pass}")

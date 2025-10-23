@@ -2,9 +2,7 @@ import json
 import logging
 
 
-def validate_json_response(
-    response_text: str, stage: str, expected_fields: list = []
-) -> dict:
+def validate_json_response(response_text: str, stage: str) -> dict:
     """
     Validate that the response is valid JSON.
 
@@ -61,7 +59,15 @@ def handle_error(
         raise ValidationError(stage, d, error_msg)
 
 
-def split_by_qc(articles, qc_pass, qc_fail, stage, allow_errors, merge_key="doi"):
+def split_by_qc(
+    articles,
+    qc_pass,
+    qc_fail,
+    stage,
+    allow_errors,
+    merge_key="metadata_doi",
+    expected_fields=["decision", "reasoning"],
+):
     """
     Split articles into those that passed and failed screening QC.
     Args:
@@ -78,8 +84,17 @@ def split_by_qc(articles, qc_pass, qc_fail, stage, allow_errors, merge_key="doi"
         k = a[merge_key]
 
         if k in qc_pass:
-            a["screening_decision"] = qc_pass[k]["decision"]
-            a["screening_reasoning"] = qc_pass[k]["reasoning"]
+            for f in expected_fields:
+                try:
+                    a[f"{stage}_{f}"] = qc_pass[k][f]
+                except KeyError:
+                    error_msg = f"Expected field '{f}' not found in QC pass data."
+                    a[f"{stage}_error"] = handle_error(
+                        a, error_msg, stage, allow_errors
+                    )
+                    articles_fail.append(a)
+                    continue
+
             articles_pass.append(a)
         elif k in qc_fail:
             articles_fail.append(a)

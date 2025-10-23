@@ -154,9 +154,7 @@ def extract_metadata(
     response_text = response_text.text.strip()
     logging.info(f"Extracted Metadata: {response_text}")
 
-    response = validate_json_response(
-        response_text, "metadata_extraction", [a["link"] for a in articles]
-    )
+    response = validate_json_response(response_text, "metadata")
     response_pass, response_fail = validate_metadata_response(response, allow_qc_errors)
     logging.info(f"Validated Metadata for {len(response_pass)} articles.")
     logging.debug(f"Screening Pass: {response_pass}")
@@ -170,6 +168,7 @@ def extract_metadata(
         "metadata",
         allow_qc_errors,
         merge_key="link",
+        expected_fields=["title", "summary", "doi"],
     )
 
     json.dump(articles_pass, open("metadata_pass.json", "w"), indent=2)

@@ -130,7 +130,7 @@ def screen_articles(
     logging.debug(f"articles: {articles}")
 
     logging.info("Began removing articles with no doi...")
-    articles = [a for a in articles if a["doi"] != "NULL"]
+    articles = [a for a in articles if a["metadata_doi"] != "NULL"]
     logging.info("Done removing articles with no doi.")
 
     logging.info("Began reading system prompt...")
@@ -162,9 +162,7 @@ def screen_articles(
     )
 
     response_text = response_text.text.strip()
-    response = validate_json_response(
-        response_text, "screening", [a["doi"] for a in articles]
-    )
+    response = validate_json_response(response_text, "screening")
     response_pass, response_fail = validate_screening_response(
         response, allow_qc_errors
     )
