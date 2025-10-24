@@ -61,9 +61,8 @@ workflow {
         true
     )
 
-    failed_screening = batchArticles(SCREEN.out.fail, params.batch_size)
     SCREEN_RETRY(
-        failed_screening,
+        SCREEN.out.fail,
         file(params.screening.system_prompt),
         file(params.research_interests),
         params.screening.model,
@@ -81,9 +80,8 @@ workflow {
         true
     )
 
-    failed_prioritization = batchArticles(PRIORITIZE.out.fail, params.batch_size)
     PRIORITIZE_RETRY(
-        failed_prioritization,
+        PRIORITIZE.out.fail,
         file(params.prioritization.system_prompt),
         file(params.research_interests),
         params.prioritization.model,

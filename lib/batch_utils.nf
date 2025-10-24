@@ -21,12 +21,17 @@ def batchArticles(channel, batch_size) {
 }
 
 def filterAndBatch(channel, batch_size, key, value) {
+
+    if (!key || !value) {
+        error "Both key and value must be provided for filtering."
+    }
+
     def branches = channel
         .splitJson()
         .flatten()
         .branch {
             match: it[key] == value
-            no_match: true
+            no_match: it[key] != value
         }
 
     return [
