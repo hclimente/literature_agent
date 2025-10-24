@@ -13,17 +13,18 @@ def llm_query(
     llm_tools: list = [],
 ):
     """
-    Screens articles based on user research interests.
+    Query LLM to process articles based on user research interests.
 
     Args:
-        articles (str):
+        articles (str): The articles to process (JSON string or list).
         system_prompt_path (str): The path to the system prompt file.
         model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
         api_key (str): The Google API key for authentication.
         research_interests_path (str): The path to a text file containing the user's research interests. It will be inserted into the system prompt.
         llm_tools (list): List of LLM tools to use.
+
     Returns:
-        None. Writes the screening decision to 'decision.txt'.
+        str: The LLM response text.
     """
 
     if not api_key:
