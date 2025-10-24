@@ -10,33 +10,14 @@ from common.parsers import (
     add_llm_arguments,
 )
 from common.validation import (
-    get_common_variations,
     save_validated_responses,
-    validate_decision_response,
     validate_llm_response,
 )
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
 
-STAGE = "priority"
 
-
-def validate_priority_response(response: str, allow_errors: bool) -> str:
-    """
-    Validate AI prioritization response. It raises an error if validation fails.
-
-    Args:
-        response_text (str): The AI response for priority decision
-        allow_errors (bool): Whether to allow errors without failing the process.
-
-    Returns:
-        tuple: (articles_pass, articles_fail)
-    """
-
-    priority_mappings = get_common_variations(["low", "medium", "high"])
-    return validate_decision_response(response, allow_errors, STAGE, priority_mappings)
-
-
-def prioritize_articles(
+def llm_process_articles(
+    stage: str,
     articles_json: str,
     system_prompt_path: str,
     research_interests_path: str,
@@ -44,7 +25,7 @@ def prioritize_articles(
     allow_qc_errors: bool,
 ):
     """
-    Prioritizes articles based on user research interests.
+    Process articles based on the provided prompt.
 
     Args:
         articles_json (str):
@@ -56,11 +37,12 @@ def prioritize_articles(
         None. Writes the screening decision to 'decision.txt'.
     """
     logging.info("-" * 20)
-    logging.info("screen_article called with the following arguments:")
+    logging.info("llm_process_articles called with the following arguments:")
     logging.info(f"articles_json           : {articles_json}")
     logging.info(f"system_prompt_path      : {system_prompt_path}")
     logging.info(f"research_interests_path : {research_interests_path}")
     logging.info(f"model                   : {model}")
+    logging.info(f"allow_qc_errors         : {allow_qc_errors}")
     logging.info("-" * 20)
 
     articles = json.load(open(articles_json, "r"))
@@ -77,36 +59,65 @@ def prioritize_articles(
     )
 
     response_pass, response_fail = validate_llm_response(
-        response_text, allow_qc_errors, validate_priority_response, STAGE
+        stage, response_text, allow_qc_errors
     )
+
+    if stage == "metadata":
+        kwargs = {
+            "merge_key": "link",
+            "expected_fields": ["title", "summary", "doi"],
+        }
+    else:
+        kwargs = {
+            "merge_key": "metadata_doi",
+            "expected_fields": ["decision", "reasoning"],
+        }
 
     save_validated_responses(
         articles,
         response_pass,
         response_fail,
         allow_qc_errors,
-        STAGE,
+        stage,
+        **kwargs,
     )
 
-    logging.info("✅ Done prioritizing articles.")
+    logging.info(f"✅ Done {stage} articles.")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     parser = argparse.ArgumentParser(
-        description="Prioritize articles based on user research interests."
+        description="Process articles based on the provided prompt."
+    )
+    parser = add_articles_json_argument(parser)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    metadata_parser = subparsers.add_parser("metadata")
+    metadata_parser = add_llm_arguments(
+        metadata_parser, include_research_interests=False
+    )
+    screening_parser = subparsers.add_parser("screening")
+    screening_parser = add_llm_arguments(
+        screening_parser, include_research_interests=True
+    )
+    priority_parser = subparsers.add_parser("priority")
+    priority_parser = add_llm_arguments(
+        priority_parser, include_research_interests=True
     )
 
-    parser = add_articles_json_argument(parser)
-    parser = add_llm_arguments(parser, include_research_interests=True)
-
     args = parser.parse_args()
+    try:
+        research_interests_path = args.research_interests_path
+    except AttributeError:
+        research_interests_path = None
 
-    prioritize_articles(
+    llm_process_articles(
+        args.command,
         args.articles_json,
         args.system_prompt_path,
-        args.research_interests_path,
+        research_interests_path,
         args.model,
         args.allow_qc_errors,
     )

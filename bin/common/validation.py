@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 
 def validate_json_response(response_text: str, stage: str) -> dict:
@@ -115,15 +116,27 @@ class ValidationError(Exception):
 
 
 def validate_llm_response(
+    stage: str,
     response_text: str,
     allow_qc_errors: bool,
-    internal_validator: callable,
-    stage: str,
 ) -> None:
-    logging.info("Began validating screening response...")
+    logging.info(f"Began validating {stage} response...")
     response = validate_json_response(response_text, stage)
 
-    response_pass, response_fail = internal_validator(response, allow_qc_errors)
+    if stage == "metadata":
+        response_pass, response_fail = validate_metadata_response(
+            stage, response, allow_qc_errors
+        )
+    elif stage == "screening":
+        response_pass, response_fail = validate_screening_response(
+            stage, response, allow_qc_errors
+        )
+    elif stage == "priority":
+        response_pass, response_fail = validate_priority_response(
+            stage, response, allow_qc_errors
+        )
+    else:
+        raise
 
     logging.info(f"Validated Screening for {len(response_pass)} articles.")
     logging.debug(f"Screening Pass: {response_pass}")
@@ -220,3 +233,118 @@ def get_common_variations(expected_values: list):
 
     d.update(update)
     return d
+
+
+def validate_metadata_response(
+    stage: str, metadata: str, allow_errors: bool = False
+) -> tuple[str, str, str]:
+    """
+    Validate and parse AI metadata response. It raises an error if validation fails.
+
+    Args:
+        metadata (str): The AI response in JSON format.
+
+    Returns:
+        tuple[dict, dict]: A tuple containing two dictionaries:
+            - articles_pass: Articles that passed validation.
+            - articles_fail: Articles that failed validation with error messages.
+    """
+
+    articles_pass = {}
+    articles_fail = {}
+
+    for k, d in metadata.items():
+        if not d or not isinstance(d, dict):
+            articles_fail[k] = handle_error(
+                d, "Empty or non-dict response.", stage, allow_errors
+            )
+            continue
+
+        if not all(k in d for k in ["title", "summary", "doi"]):
+            articles_fail[k] = handle_error(
+                d, "Missing keys (title, summary, doi).", stage, allow_errors
+            )
+            continue
+
+        # Validate individual fields
+        if not d["title"]:
+            articles_fail[k] = handle_error(
+                d, "Title cannot be empty.", stage, allow_errors
+            )
+            continue
+        else:
+            d["title"] = sanitize_text(d["title"].strip())
+
+        if not d["summary"]:
+            articles_fail[k] = handle_error(
+                d, "Summary cannot be empty.", stage, allow_errors
+            )
+            continue
+        else:
+            d["summary"] = d["summary"].strip()
+
+        if not d["doi"]:
+            articles_fail[k] = handle_error(
+                d, "DOI cannot be empty.", stage, allow_errors
+            )
+            continue
+
+        elif d["doi"] != "NULL":
+            if not re.match(r"^10\.\d{4,}/[^\s]+$", d["doi"]):
+                articles_fail[k] = handle_error(
+                    d, d["metadata_error"], stage, allow_errors
+                )
+                continue
+            d["doi"] = d["doi"].strip()
+
+        articles_pass[k] = d
+
+    return articles_pass, articles_fail
+
+
+def validate_screening_response(stage: str, response: str, allow_errors: bool) -> str:
+    """
+    Validate AI screening response. It raises an error if validation fails.
+
+    Args:
+        response (str): The parsed AI response for screening decision
+        allow_errors (bool): Whether to allow errors without failing the process.
+
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
+
+    screening_mappings = get_common_variations(["true", "false"])
+    return validate_decision_response(response, allow_errors, stage, screening_mappings)
+
+
+def validate_priority_response(stage: str, response: str, allow_errors: bool) -> str:
+    """
+    Validate AI prioritization response. It raises an error if validation fails.
+
+    Args:
+        response_text (str): The AI response for priority decision
+        allow_errors (bool): Whether to allow errors without failing the process.
+
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
+
+    priority_mappings = get_common_variations(["low", "medium", "high"])
+    return validate_decision_response(response, allow_errors, stage, priority_mappings)
+
+
+def sanitize_text(text: str) -> str:
+    """
+    Sanitize text by escaping special characters.
+
+    Args:
+        text (str): The text to sanitize.
+    Returns:
+        str: The sanitized text.
+    """
+    special_characters = ["\\", '"', "'", "$"]
+    for char in special_characters:
+        text = text.strip().replace(char, f"\\{char}")
+
+    return text
