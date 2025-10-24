@@ -1,7 +1,7 @@
 process CREATE_ARTICLES_DB {
 
     container 'community.wave.seqera.io/library/duckdb:1.4.1--3daff581f117ee85'
-    publishDir "${DB_PARENT_DIR}", mode: 'copy'
+    publishDir "${DB_PARENT_DIR}", mode: 'link'
 
     input:
     path JOURNALS_TSV
@@ -107,7 +107,7 @@ process SAVE {
 
 process UPDATE_TIMESTAMPS {
 
-    container 'community.wave.seqera.io/library/duckdb:1.4.1--3daff581f117ee85'
+    container 'community.wave.seqera.io/library/duckdb-cli:1.4.1--d924e68d63392ee0'
 
     input:
     val COMPLETION_SIGNALS

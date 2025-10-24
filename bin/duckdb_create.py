@@ -4,7 +4,7 @@ import logging
 
 import duckdb
 
-from common import add_duckdb_arguments
+from common.parsers import add_duckdb_arguments
 
 
 def create_journal_table(journals_tsv: str, db_path: str, global_cutoff_date: str):
