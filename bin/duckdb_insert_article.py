@@ -16,7 +16,7 @@ def insert_article(
     articles_json: str,
 ) -> None:
     """
-    Update a specific field in a DuckDB table for multiple records.
+    Insert articles from a JSON file into a DuckDB database.
 
     Args:
         db_path (str): Path to the DuckDB database file.

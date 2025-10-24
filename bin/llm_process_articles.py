@@ -25,16 +25,15 @@ def llm_process_articles(
     allow_qc_errors: bool,
 ):
     """
-    Process articles based on the provided prompt.
+    Process articles using LLM based on the provided stage and prompt.
 
     Args:
-        articles_json (str):
+        stage (str): The processing stage (e.g., "metadata", "screening", "priority").
+        articles_json (str): Path to the JSON file containing the articles to process.
         system_prompt_path (str): The path to the system prompt file.
         research_interests_path (str): The path to a text file containing the user's research interests.
         model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
         allow_qc_errors (bool): Whether to allow QC errors without failing the process.
-    Returns:
-        None. Writes the screening decision to 'decision.txt'.
     """
     logging.info("-" * 20)
     logging.info("llm_process_articles called with the following arguments:")
