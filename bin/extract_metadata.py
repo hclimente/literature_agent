@@ -58,20 +58,20 @@ def validate_metadata_response(
     for k, d in metadata.items():
         if not d or not isinstance(d, dict):
             articles_fail[k] = handle_error(
-                d, "Empty or non-dict response.", "metadata", allow_errors
+                d, "Empty or non-dict response.", STAGE, allow_errors
             )
             continue
 
         if not all(k in d for k in ["title", "summary", "doi"]):
             articles_fail[k] = handle_error(
-                d, "Missing keys (title, summary, doi).", "metadata", allow_errors
+                d, "Missing keys (title, summary, doi).", STAGE, allow_errors
             )
             continue
 
         # Validate individual fields
         if not d["title"]:
             articles_fail[k] = handle_error(
-                d, "Title cannot be empty.", "metadata", allow_errors
+                d, "Title cannot be empty.", STAGE, allow_errors
             )
             continue
         else:
@@ -79,7 +79,7 @@ def validate_metadata_response(
 
         if not d["summary"]:
             articles_fail[k] = handle_error(
-                d, "Summary cannot be empty.", "metadata", allow_errors
+                d, "Summary cannot be empty.", STAGE, allow_errors
             )
             continue
         else:
@@ -87,14 +87,14 @@ def validate_metadata_response(
 
         if not d["doi"]:
             articles_fail[k] = handle_error(
-                d, "DOI cannot be empty.", "metadata", allow_errors
+                d, "DOI cannot be empty.", STAGE, allow_errors
             )
             continue
 
         elif d["doi"] != "NULL":
             if not re.match(r"^10\.\d{4,}/[^\s]+$", d["doi"]):
                 articles_fail[k] = handle_error(
-                    d, d["metadata_error"], "metadata", allow_errors
+                    d, d["metadata_error"], STAGE, allow_errors
                 )
                 continue
             d["doi"] = d["doi"].strip()
