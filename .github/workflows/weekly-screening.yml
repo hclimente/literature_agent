@@ -81,7 +81,6 @@ jobs:
           --journal_list config/journals.tsv \
           --research_interests config/research_interests.md \
           --batch_size ${BATCH_SIZE} \
-          -with-docker \
           -ansi-log false
 
     - name: Upload updated database artifact
