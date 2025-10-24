@@ -292,7 +292,7 @@ def validate_metadata_response(
         elif d["doi"] != "NULL":
             if not re.match(r"^10\.\d{4,}/[^\s]+$", d["doi"]):
                 articles_fail[k] = handle_error(
-                    d, d["metadata_error"], stage, allow_errors
+                    d, "Invalid DOI format.", stage, allow_errors
                 )
                 continue
             d["doi"] = d["doi"].strip()
