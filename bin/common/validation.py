@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 
 def validate_json_response(response_text: str, stage: str) -> dict:
@@ -8,6 +9,7 @@ def validate_json_response(response_text: str, stage: str) -> dict:
 
     Args:
         response_text (str): The AI response text.
+        stage (str): The processing stage (e.g., "metadata", "screening", "priority").
 
     Returns:
         dict: The parsed JSON object.
@@ -41,7 +43,7 @@ def validate_json_response(response_text: str, stage: str) -> dict:
 
 def handle_error(
     d: dict, error_msg: str, stage: str, allow_errors: bool = False
-) -> str:
+) -> dict:
     """
     Handle error messages.
 
@@ -50,8 +52,9 @@ def handle_error(
         error_msg (str): The error message to handle.
         stage (str): The processing stage (e.g., "screening", "priority").
         allow_errors (bool): Whether to allow errors without raising exceptions.
+
     Returns:
-        str: The handled error message.
+        dict: The modified dictionary with error field added (if allow_errors=True).
     """
     if allow_errors:
         logging.warning(f"⚠️ {error_msg}")
@@ -71,11 +74,17 @@ def split_by_qc(
     expected_fields=["decision", "reasoning"],
 ):
     """
-    Split articles into those that passed and failed screening QC.
+    Split articles into those that passed and failed QC.
+
     Args:
         articles (list): List of articles.
         qc_pass (dict): Articles that passed validation.
-        qc_faill (dict): Articles that failed validation.
+        qc_fail (dict): Articles that failed validation.
+        stage (str): The processing stage (e.g., "screening", "priority").
+        allow_errors (bool): Whether to allow errors without raising exceptions.
+        merge_key (str): The key to use for merging articles with QC results.
+        expected_fields (list): List of expected fields in the QC results.
+
     Returns:
         tuple: (articles_pass, articles_fail)
     """
@@ -115,23 +124,65 @@ class ValidationError(Exception):
 
 
 def validate_llm_response(
-    articles: list,
+    stage: str,
     response_text: str,
     allow_qc_errors: bool,
-    internal_validator: callable,
-    stage: str,
-    **kwargs,
-) -> None:
-    logging.info("Began validating screening response...")
+) -> tuple:
+    """
+    Validate LLM response for a given processing stage.
+
+    Args:
+        stage (str): The processing stage (e.g., "metadata", "screening", "priority").
+        response_text (str): The AI response text.
+        allow_qc_errors (bool): Whether to allow errors without failing the process.
+
+    Returns:
+        tuple: (response_pass, response_fail)
+    """
+    logging.info(f"Began validating {stage} response...")
     response = validate_json_response(response_text, stage)
 
-    response_pass, response_fail = internal_validator(response, allow_qc_errors)
+    if stage == "metadata":
+        response_pass, response_fail = validate_metadata_response(
+            stage, response, allow_qc_errors
+        )
+    elif stage == "screening":
+        response_pass, response_fail = validate_screening_response(
+            stage, response, allow_qc_errors
+        )
+    elif stage == "priority":
+        response_pass, response_fail = validate_priority_response(
+            stage, response, allow_qc_errors
+        )
+    else:
+        raise
 
     logging.info(f"Validated Screening for {len(response_pass)} articles.")
     logging.debug(f"Screening Pass: {response_pass}")
     logging.info(f"Invalid Screening for {len(response_fail)} articles.")
     logging.debug(f"Screening Fail: {response_fail}")
 
+    return response_pass, response_fail
+
+
+def save_validated_responses(
+    articles: list,
+    response_pass: dict,
+    response_fail: dict,
+    allow_qc_errors: bool,
+    stage: str,
+    **kwargs,
+) -> None:
+    """
+    Save validated responses to JSON files.
+
+    Args:
+        articles (list): List of articles to validate.
+        response_pass (dict): Articles that passed validation.
+        response_fail (dict): Articles that failed validation.
+        allow_qc_errors (bool): Whether to allow errors without failing the process.
+        stage (str): The processing stage (e.g., "screening", "priority").
+    """
     articles_pass, articles_fail = split_by_qc(
         articles, response_pass, response_fail, stage, allow_qc_errors, **kwargs
     )
@@ -145,8 +196,20 @@ def validate_llm_response(
 
 
 def validate_decision_response(
-    decisions: str, allow_errors: bool, stage: str, decision_mappings: dict
-) -> str:
+    decisions: dict, allow_errors: bool, stage: str, decision_mappings: dict
+) -> tuple:
+    """
+    Validate decision responses and normalize decision values.
+
+    Args:
+        decisions (dict): Dictionary of article decisions.
+        allow_errors (bool): Whether to allow errors without failing the process.
+        stage (str): The processing stage (e.g., "screening", "priority").
+        decision_mappings (dict): Mapping of decision variations to normalized values.
+
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
     articles_pass = {}
     articles_fail = {}
 
@@ -194,6 +257,15 @@ def validate_decision_response(
 
 
 def get_common_variations(expected_values: list):
+    """
+    Generate common variations of expected values (case, quotes, punctuation).
+
+    Args:
+        expected_values (list): List of expected values.
+
+    Returns:
+        dict: Mapping of variations to normalized values.
+    """
     d = {}
 
     for v in expected_values:
@@ -211,3 +283,124 @@ def get_common_variations(expected_values: list):
 
     d.update(update)
     return d
+
+
+def validate_metadata_response(
+    stage: str, metadata: dict, allow_errors: bool = False
+) -> tuple:
+    """
+    Validate and parse AI metadata response.
+
+    Args:
+        stage (str): The processing stage.
+        metadata (dict): The AI response in JSON format.
+        allow_errors (bool): Whether to allow errors without raising exceptions.
+
+    Returns:
+        tuple[dict, dict]: A tuple containing two dictionaries:
+            - articles_pass: Articles that passed validation.
+            - articles_fail: Articles that failed validation with error messages.
+    """
+
+    articles_pass = {}
+    articles_fail = {}
+
+    for k, d in metadata.items():
+        if not d or not isinstance(d, dict):
+            articles_fail[k] = handle_error(
+                d, "Empty or non-dict response.", stage, allow_errors
+            )
+            continue
+
+        if not all(k in d for k in ["title", "summary", "doi"]):
+            articles_fail[k] = handle_error(
+                d, "Missing keys (title, summary, doi).", stage, allow_errors
+            )
+            continue
+
+        # Validate individual fields
+        if not d["title"]:
+            articles_fail[k] = handle_error(
+                d, "Title cannot be empty.", stage, allow_errors
+            )
+            continue
+        else:
+            d["title"] = sanitize_text(d["title"].strip())
+
+        if not d["summary"]:
+            articles_fail[k] = handle_error(
+                d, "Summary cannot be empty.", stage, allow_errors
+            )
+            continue
+        else:
+            d["summary"] = d["summary"].strip()
+
+        if not d["doi"]:
+            articles_fail[k] = handle_error(
+                d, "DOI cannot be empty.", stage, allow_errors
+            )
+            continue
+
+        elif d["doi"] != "NULL":
+            if not re.match(r"^10\.\d{4,}/[^\s]+$", d["doi"]):
+                articles_fail[k] = handle_error(
+                    d, "Invalid DOI format.", stage, allow_errors
+                )
+                continue
+            d["doi"] = d["doi"].strip()
+
+        articles_pass[k] = d
+
+    return articles_pass, articles_fail
+
+
+def validate_screening_response(
+    stage: str, response: dict, allow_errors: bool
+) -> tuple:
+    """
+    Validate AI screening response.
+
+    Args:
+        stage (str): The processing stage.
+        response (dict): The parsed AI response for screening decision.
+        allow_errors (bool): Whether to allow errors without failing the process.
+
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
+
+    screening_mappings = get_common_variations(["true", "false"])
+    return validate_decision_response(response, allow_errors, stage, screening_mappings)
+
+
+def validate_priority_response(stage: str, response: dict, allow_errors: bool) -> tuple:
+    """
+    Validate AI prioritization response.
+
+    Args:
+        stage (str): The processing stage.
+        response (dict): The AI response for priority decision.
+        allow_errors (bool): Whether to allow errors without failing the process.
+
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
+
+    priority_mappings = get_common_variations(["low", "medium", "high"])
+    return validate_decision_response(response, allow_errors, stage, priority_mappings)
+
+
+def sanitize_text(text: str) -> str:
+    """
+    Sanitize text by escaping special characters.
+
+    Args:
+        text (str): The text to sanitize.
+    Returns:
+        str: The sanitized text.
+    """
+    special_characters = ["\\", '"', "'", "$"]
+    for char in special_characters:
+        text = text.strip().replace(char, f"\\{char}")
+
+    return text

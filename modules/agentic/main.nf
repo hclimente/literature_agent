@@ -16,8 +16,9 @@ process EXTRACT_METADATA {
 
     script:
     """
-    extract_metadata.py \
+    llm_process_articles.py \
 --articles_json ${ARTICLES_JSON} \
+metadata \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --model ${MODEL} \
 --allow_qc_errors ${ALLOW_QC_ERRORS}
@@ -46,8 +47,9 @@ process SCREEN {
 
     script:
     """
-    screen_articles.py \
+    llm_process_articles.py \
 --articles_json ${ARTICLES_JSON} \
+screening \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --research_interests_path ${RESEARCH_INTERESTS_PATH} \
 --model ${MODEL} \
@@ -76,8 +78,9 @@ process PRIORITIZE {
 
     script:
     """
-    prioritize_articles.py \
+    llm_process_articles.py \
 --articles_json ${ARTICLES_JSON} \
+priority \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --research_interests_path ${RESEARCH_INTERESTS_PATH} \
 --model ${MODEL} \

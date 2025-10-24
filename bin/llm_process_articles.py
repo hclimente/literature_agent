@@ -10,32 +10,14 @@ from common.parsers import (
     add_llm_arguments,
 )
 from common.validation import (
-    get_common_variations,
-    validate_decision_response,
+    save_validated_responses,
     validate_llm_response,
 )
 from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
 
-STAGE = "screening"
 
-
-def validate_screening_response(response: str, allow_errors: bool) -> str:
-    """
-    Validate AI screening response. It raises an error if validation fails.
-
-    Args:
-        response (str): The parsed AI response for screening decision
-        allow_errors (bool): Whether to allow errors without failing the process.
-
-    Returns:
-        tuple: (articles_pass, articles_fail)
-    """
-
-    screening_mappings = get_common_variations(["true", "false"])
-    return validate_decision_response(response, allow_errors, STAGE, screening_mappings)
-
-
-def screen_articles(
+def llm_process_articles(
+    stage: str,
     articles_json: str,
     system_prompt_path: str,
     research_interests_path: str,
@@ -43,19 +25,18 @@ def screen_articles(
     allow_qc_errors: bool,
 ):
     """
-    Screens articles based on user research interests.
+    Process articles using LLM based on the provided stage and prompt.
 
     Args:
-        articles_json (str):
+        stage (str): The processing stage (e.g., "metadata", "screening", "priority").
+        articles_json (str): Path to the JSON file containing the articles to process.
         system_prompt_path (str): The path to the system prompt file.
         research_interests_path (str): The path to a text file containing the user's research interests.
         model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
         allow_qc_errors (bool): Whether to allow QC errors without failing the process.
-    Returns:
-        None. Writes the screening decision to 'decision.txt'.
     """
     logging.info("-" * 20)
-    logging.info("screen_articles called with the following arguments:")
+    logging.info("llm_process_articles called with the following arguments:")
     logging.info(f"articles_json           : {articles_json}")
     logging.info(f"system_prompt_path      : {system_prompt_path}")
     logging.info(f"research_interests_path : {research_interests_path}")
@@ -67,10 +48,6 @@ def screen_articles(
     logging.info(f"Loaded {len(articles)} articles.")
     logging.debug(f"articles: {articles}")
 
-    logging.info("Began removing articles with no doi...")
-    articles = [a for a in articles if a["metadata_doi"] != "NULL"]
-    logging.info("Done removing articles with no doi.")
-
     response_text = llm_query(
         articles=articles,
         system_prompt_path=system_prompt_path,
@@ -80,28 +57,66 @@ def screen_articles(
         llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
     )
 
-    validate_llm_response(
-        articles, response_text, allow_qc_errors, validate_screening_response, STAGE
+    response_pass, response_fail = validate_llm_response(
+        stage, response_text, allow_qc_errors
     )
 
-    logging.info("✅ Done screening articles.")
+    if stage == "metadata":
+        kwargs = {
+            "merge_key": "link",
+            "expected_fields": ["title", "summary", "doi"],
+        }
+    else:
+        kwargs = {
+            "merge_key": "metadata_doi",
+            "expected_fields": ["decision", "reasoning"],
+        }
+
+    save_validated_responses(
+        articles,
+        response_pass,
+        response_fail,
+        allow_qc_errors,
+        stage,
+        **kwargs,
+    )
+
+    logging.info(f"✅ Done {stage} articles.")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     parser = argparse.ArgumentParser(
-        description="Screen articles based on user research interests."
+        description="Process articles based on the provided prompt."
     )
     parser = add_articles_json_argument(parser)
-    parser = add_llm_arguments(parser, include_research_interests=True)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    metadata_parser = subparsers.add_parser("metadata")
+    metadata_parser = add_llm_arguments(
+        metadata_parser, include_research_interests=False
+    )
+    screening_parser = subparsers.add_parser("screening")
+    screening_parser = add_llm_arguments(
+        screening_parser, include_research_interests=True
+    )
+    priority_parser = subparsers.add_parser("priority")
+    priority_parser = add_llm_arguments(
+        priority_parser, include_research_interests=True
+    )
 
     args = parser.parse_args()
+    try:
+        research_interests_path = args.research_interests_path
+    except AttributeError:
+        research_interests_path = None
 
-    screen_articles(
+    llm_process_articles(
+        args.command,
         args.articles_json,
         args.system_prompt_path,
-        args.research_interests_path,
+        research_interests_path,
         args.model,
         args.allow_qc_errors,
     )

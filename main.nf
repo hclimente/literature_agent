@@ -3,24 +3,7 @@ include { EXTRACT_METADATA as EXTRACT_METADATA_RETRY } from './modules/agentic/m
 include { SCREEN as SCREEN_RETRY } from './modules/agentic/main'
 include { PRIORITIZE as PRIORITIZE_RETRY } from './modules/agentic/main'
 include { CREATE_ARTICLES_DB; FETCH_JOURNALS; FETCH_ARTICLES; REMOVE_PROCESSED; SAVE; UPDATE_TIMESTAMPS} from './modules/db/main'
-
-import groovy.json.JsonOutput
-
-def toJson(article_list) {
-    def json = JsonOutput.toJson(article_list)
-    json = JsonOutput.prettyPrint(json)
-    def tempFile = File.createTempFile("articles_", ".json")
-    tempFile.write(json)
-    return file(tempFile)
-}
-
-def processBatch(channel, batch_size) {
-    return channel
-        .splitJson()
-        .flatten()
-        .buffer(size: batch_size, remainder: true)
-        .map { batch -> toJson(batch) }
-}
+include { batchArticles; filterAndBatch } from './lib/batch_utils.nf'
 
 workflow {
 
@@ -45,28 +28,33 @@ workflow {
 
     FETCH_ARTICLES(journals, 50)
 
-
+    fetched_batches = batchArticles(FETCH_ARTICLES.out, 1000)
     REMOVE_PROCESSED(
-        processBatch(FETCH_ARTICLES.out, 1000),
+        fetched_batches,
         database_path
     )
 
+    removed_batches = batchArticles(REMOVE_PROCESSED.out, params.batch_size)
     EXTRACT_METADATA(
-        processBatch(REMOVE_PROCESSED.out, params.batch_size),
+        removed_batches,
         file(params.metadata_extraction.system_prompt),
         params.metadata_extraction.model,
         true
     )
 
+    failed_metadata = batchArticles(EXTRACT_METADATA.out.fail, params.batch_size)
     EXTRACT_METADATA_RETRY(
-        processBatch(EXTRACT_METADATA.out.fail, params.batch_size),
+        failed_metadata,
         file(params.metadata_extraction.system_prompt),
         params.metadata_extraction.model,
         false
     )
 
+    metadata_articles = EXTRACT_METADATA.out.pass
+        .concat(EXTRACT_METADATA_RETRY.out.pass)
+    filtered_metadata = filterAndBatch(metadata_articles, params.batch_size, "metadata_doi", "NULL")
     SCREEN(
-        EXTRACT_METADATA.out.pass,
+        filtered_metadata.no_match,
         file(params.screening.system_prompt),
         file(params.research_interests),
         params.screening.model,
@@ -74,15 +62,18 @@ workflow {
     )
 
     SCREEN_RETRY(
-        processBatch(SCREEN.out.fail, params.batch_size),
+        SCREEN.out.fail,
         file(params.screening.system_prompt),
         file(params.research_interests),
         params.screening.model,
         false
     )
 
+    screened_articles = SCREEN.out.pass
+        .concat(SCREEN_RETRY.out.pass)
+    filtered_screened = filterAndBatch(screened_articles, params.batch_size, "screening_decision", "true")
     PRIORITIZE(
-        SCREEN.out.pass,
+        filtered_screened.match,
         file(params.prioritization.system_prompt),
         file(params.research_interests),
         params.prioritization.model,
@@ -90,7 +81,7 @@ workflow {
     )
 
     PRIORITIZE_RETRY(
-        processBatch(PRIORITIZE.out.fail, params.batch_size),
+        PRIORITIZE.out.fail,
         file(params.prioritization.system_prompt),
         file(params.research_interests),
         params.prioritization.model,
@@ -99,8 +90,11 @@ workflow {
 
     prioritized_articles = PRIORITIZE.out.pass
         .concat(PRIORITIZE_RETRY.out.pass)
+        .concat(filtered_metadata.match)
+        .concat(filtered_screened.no_match)
+    final_batches = batchArticles(prioritized_articles, 100)
 
-    SAVE(prioritized_articles, database_path)
+    SAVE(final_batches, database_path)
     UPDATE_TIMESTAMPS(SAVE.out.collect(), database_path)
 
 }

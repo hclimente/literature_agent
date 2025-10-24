@@ -16,7 +16,7 @@ def insert_article(
     articles_json: str,
 ) -> None:
     """
-    Update a specific field in a DuckDB table for multiple records.
+    Insert articles from a JSON file into a DuckDB database.
 
     Args:
         db_path (str): Path to the DuckDB database file.
@@ -31,12 +31,6 @@ def insert_article(
 
     for a in articles:
         a["metadata_doi"] = a["metadata_doi"] if a["metadata_doi"] != "NULL" else None
-        a["screening_decision"] = (
-            a["screening_decision"] if a["screening_decision"] != "NULL" else None
-        )
-        a["priority_decision"] = (
-            a["priority_decision"] if a["priority_decision"] != "NULL" else None
-        )
 
         logging.info(f"Inserting article: {a['metadata_title'][:50]}...")
 
@@ -54,10 +48,10 @@ def insert_article(
                         a["journal_name"],
                         a["date"],
                         a["metadata_doi"],
-                        a["screening_decision"],
-                        a["screening_reasoning"],
-                        a["priority_decision"],
-                        a["priority_reasoning"],
+                        a.get("screening_decision", None),
+                        a.get("screening_reasoning", None),
+                        a.get("priority_decision", None),
+                        a.get("priority_reasoning", None),
                     ),
                 )
                 logging.info("✅ Article inserted successfully")

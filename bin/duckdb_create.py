@@ -4,10 +4,18 @@ import logging
 
 import duckdb
 
-from common import add_duckdb_arguments
+from common.parsers import add_duckdb_arguments
 
 
 def create_journal_table(journals_tsv: str, db_path: str, global_cutoff_date: str):
+    """
+    Create and populate the sources table in the database.
+
+    Args:
+        journals_tsv (str): Path to the TSV file containing journal names and RSS feed URLs.
+        db_path (str): Path to the DuckDB database file.
+        global_cutoff_date (str): Global cutoff date for articles in ISO 8601 format (YYYY-MM-DD).
+    """
     logging.info("-" * 20)
     logging.info("Called create_journal_table with the following arguments:")
     logging.info(f"journals_tsv       : {journals_tsv}")
@@ -47,6 +55,12 @@ def create_journal_table(journals_tsv: str, db_path: str, global_cutoff_date: st
 
 
 def create_articles_table(db_path: str):
+    """
+    Create the articles table in the database.
+
+    Args:
+        db_path (str): Path to the DuckDB database file.
+    """
     logging.info("-" * 20)
     logging.info("Called create_articles_table with the following arguments:")
     logging.info(f"db_path : {db_path}")
