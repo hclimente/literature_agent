@@ -1,0 +1,144 @@
+name: Weekly Literature Screening
+
+on:
+  # Run every Monday at 9 AM UTC
+  schedule:
+    - cron: '0 9 * * 1'
+
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'Batch size for processing articles'
+        required: false
+        default: '10'
+        type: string
+
+jobs:
+  screen-papers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hour timeout
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Set up Nextflow
+      uses: nf-core/setup-nextflow@v2
+      with:
+        version: latest-stable
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Configure Nextflow secrets
+      env:
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        USER_EMAIL: ${{ secrets.USER_EMAIL }}
+        SPRINGER_META_API_KEY: ${{ secrets.SPRINGER_META_API_KEY }}
+      run: |
+        # Set Nextflow secrets from GitHub secrets
+        nextflow secrets set GOOGLE_API_KEY "$GOOGLE_API_KEY"
+        nextflow secrets set USER_EMAIL "$USER_EMAIL"
+
+        # Optional secret - only set if available
+        if [ -n "$SPRINGER_META_API_KEY" ]; then
+          nextflow secrets set SPRINGER_META_API_KEY "$SPRINGER_META_API_KEY"
+        fi
+
+        echo "✓ Nextflow secrets configured"
+
+    - name: Download existing database artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: papers-database
+        path: .
+      continue-on-error: true  # First run won't have this artifact
+
+    - name: Check if database exists
+      id: check_db
+      run: |
+        if [ -f papers_please.duckdb ]; then
+          echo "Database found from artifact"
+          echo "db_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "No existing database, will create new one"
+          echo "db_exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run Nextflow pipeline
+      env:
+        NXF_ANSI_LOG: false
+      run: |
+        BATCH_SIZE="${{ github.event.inputs.batch_size || '10' }}"
+
+        echo "Starting pipeline with batch_size=${BATCH_SIZE}"
+        echo "Database exists: ${{ steps.check_db.outputs.db_exists }}"
+
+        nextflow run main.nf \
+          --journal_list config/journals.tsv \
+          --research_interests config/research_interests.md \
+          --batch_size ${BATCH_SIZE} \
+          -with-docker \
+          -ansi-log false
+
+    - name: Upload updated database artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: papers-database
+        path: papers_please.duckdb
+        retention-days: 90
+        compression-level: 9
+
+    - name: Generate pipeline summary
+      if: always()
+      run: |
+        echo "## Pipeline Execution Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Date**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Batch Size**: ${{ github.event.inputs.batch_size || '10' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Database Status**: ${{ steps.check_db.outputs.db_exists == 'true' && 'Updated existing' || 'Created new' }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f .nextflow.log ]; then
+          echo "### Pipeline Status" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          tail -n 20 .nextflow.log >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Upload pipeline logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: nextflow-logs-${{ github.run_number }}
+        path: |
+          .nextflow.log
+          .nextflow/**
+        retention-days: 14
+        compression-level: 9
+
+    - name: Upload work directory logs on failure
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: work-logs-${{ github.run_number }}
+        path: |
+          work/**/.command.log
+          work/**/.command.err
+        retention-days: 7
+        compression-level: 9
+
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "::error::Pipeline execution failed. Check the artifacts for detailed logs."
+        echo "## ⚠️ Pipeline Failed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Please check the uploaded artifacts for detailed error logs:" >> $GITHUB_STEP_SUMMARY
+        echo "- nextflow-logs-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "- work-logs-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
