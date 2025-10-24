@@ -67,14 +67,6 @@ def prioritize_articles(
     logging.info(f"Loaded {len(articles)} articles.")
     logging.debug(f"articles: {articles}")
 
-    logging.info("Began removing articles with no doi or screened out...")
-    articles = [
-        a
-        for a in articles
-        if a["metadata_doi"] != "NULL" and a["screening_decision"] == "true"
-    ]
-    logging.info("Done removing articles with no doi.")
-
     response_text = llm_query(
         articles=articles,
         system_prompt_path=system_prompt_path,

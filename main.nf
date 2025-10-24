@@ -14,12 +14,38 @@ def toJson(article_list) {
     return file(tempFile)
 }
 
-def processBatch(channel, batch_size) {
-    return channel
+def processBatch(channel, batch_size, key = "", value = "") {
+    def flattened = channel
         .splitJson()
         .flatten()
+
+    def eq
+    def neq
+
+    if (key && value) {
+        def branches = flattened.branch {
+            eq: it[key] == value
+            neq: true
+        }
+        eq = branches.eq
+        neq = branches.neq
+    } else {
+        eq = flattened
+        neq = Channel.empty()
+    }
+
+    eq = eq
         .buffer(size: batch_size, remainder: true)
         .map { batch -> toJson(batch) }
+
+    neq = neq
+        .buffer(size: batch_size, remainder: true)
+        .map { batch -> toJson(batch) }
+
+    return [
+        eq: eq,
+        neq: neq
+    ]
 }
 
 workflow {
@@ -45,52 +71,62 @@ workflow {
 
     FETCH_ARTICLES(journals, 50)
 
-
+    fetched_batches = processBatch(FETCH_ARTICLES.out, 1000)
     REMOVE_PROCESSED(
-        processBatch(FETCH_ARTICLES.out, 1000),
+        fetched_batches.eq,
         database_path
     )
 
+    removed_batches = processBatch(REMOVE_PROCESSED.out, params.batch_size)
     EXTRACT_METADATA(
-        processBatch(REMOVE_PROCESSED.out, params.batch_size),
+        removed_batches.eq,
         file(params.metadata_extraction.system_prompt),
         params.metadata_extraction.model,
         true
     )
 
+    failed_metadata = processBatch(EXTRACT_METADATA.out.fail, params.batch_size)
     EXTRACT_METADATA_RETRY(
-        processBatch(EXTRACT_METADATA.out.fail, params.batch_size),
+        failed_metadata.eq,
         file(params.metadata_extraction.system_prompt),
         params.metadata_extraction.model,
         false
     )
 
+    metadata_articles = EXTRACT_METADATA.out.pass
+        .concat(EXTRACT_METADATA_RETRY.out.pass)
+    filtered_metadata = processBatch(metadata_articles, params.batch_size, "metadata_doi", "NULL")
     SCREEN(
-        EXTRACT_METADATA.out.pass,
+        filtered_metadata.neq,
         file(params.screening.system_prompt),
         file(params.research_interests),
         params.screening.model,
         true
     )
 
+    failed_screening = processBatch(SCREEN.out.fail, params.batch_size)
     SCREEN_RETRY(
-        processBatch(SCREEN.out.fail, params.batch_size),
+        failed_screening.eq,
         file(params.screening.system_prompt),
         file(params.research_interests),
         params.screening.model,
         false
     )
 
+    screened_articles = SCREEN.out.pass
+        .concat(SCREEN_RETRY.out.pass)
+    filtered_screened = processBatch(screened_articles, params.batch_size, "screening_decision", "true")
     PRIORITIZE(
-        SCREEN.out.pass,
+        filtered_screened.eq,
         file(params.prioritization.system_prompt),
         file(params.research_interests),
         params.prioritization.model,
         true
     )
 
+    failed_prioritization = processBatch(PRIORITIZE.out.fail, params.batch_size)
     PRIORITIZE_RETRY(
-        processBatch(PRIORITIZE.out.fail, params.batch_size),
+        failed_prioritization.eq,
         file(params.prioritization.system_prompt),
         file(params.research_interests),
         params.prioritization.model,
@@ -99,8 +135,11 @@ workflow {
 
     prioritized_articles = PRIORITIZE.out.pass
         .concat(PRIORITIZE_RETRY.out.pass)
+        .concat(filtered_metadata.eq)
+        .concat(filtered_screened.neq)
+    final_batches = processBatch(prioritized_articles, 100)
 
-    SAVE(prioritized_articles, database_path)
+    SAVE(final_batches.eq, database_path)
     UPDATE_TIMESTAMPS(SAVE.out.collect(), database_path)
 
 }

@@ -68,10 +68,6 @@ def screen_articles(
     logging.info(f"Loaded {len(articles)} articles.")
     logging.debug(f"articles: {articles}")
 
-    logging.info("Began removing articles with no doi...")
-    articles = [a for a in articles if a["metadata_doi"] != "NULL"]
-    logging.info("Done removing articles with no doi.")
-
     response_text = llm_query(
         articles=articles,
         system_prompt_path=system_prompt_path,

@@ -147,7 +147,6 @@ def extract_metadata(
     )
 
     response_pass, response_fail = validate_llm_response(
-        articles,
         response_text,
         allow_qc_errors,
         validate_metadata_response,
