@@ -52,7 +52,6 @@ workflow {
             row['last_checked'] = global_cutoff_date
             return row
         }
-        .take(2)
 
 
     FETCH_ARTICLES(journals, 50)
