@@ -2,6 +2,15 @@ import argparse
 
 
 def add_articles_json_argument(parser: argparse.ArgumentParser):
+    """
+    Add articles JSON argument to an argument parser.
+
+    Args:
+        parser (argparse.ArgumentParser): The argument parser to add arguments to.
+
+    Returns:
+        argparse.ArgumentParser: The modified parser.
+    """
     parser.add_argument(
         "--articles_json",
         type=str,
@@ -13,6 +22,15 @@ def add_articles_json_argument(parser: argparse.ArgumentParser):
 
 
 def add_duckdb_arguments(parser: argparse.ArgumentParser):
+    """
+    Add DuckDB database path argument to an argument parser.
+
+    Args:
+        parser (argparse.ArgumentParser): The argument parser to add arguments to.
+
+    Returns:
+        argparse.ArgumentParser: The modified parser.
+    """
     parser.add_argument(
         "--db_path",
         type=str,
@@ -26,6 +44,16 @@ def add_duckdb_arguments(parser: argparse.ArgumentParser):
 def add_llm_arguments(
     parser: argparse.ArgumentParser, include_research_interests: bool = False
 ):
+    """
+    Add LLM processing arguments to an argument parser.
+
+    Args:
+        parser (argparse.ArgumentParser): The argument parser to add arguments to.
+        include_research_interests (bool): Whether to include the research interests argument.
+
+    Returns:
+        argparse.ArgumentParser: The modified parser.
+    """
     parser.add_argument(
         "--system_prompt_path",
         type=str,
