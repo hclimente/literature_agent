@@ -14,6 +14,10 @@ from common.validation import (
     save_validated_responses,
     validate_llm_response,
 )
+from tools.metadata_tools import (
+    get_abstract_from_doi,
+    springer_get_abstract_from_doi,
+)
 
 
 def llm_process_articles(
@@ -55,7 +59,7 @@ def llm_process_articles(
         model=model,
         api_key=os.environ.get("GOOGLE_API_KEY"),
         research_interests_path=research_interests_path,
-        # llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
+        llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
     )
 
     merge_key = "url" if stage == "metadata" else "doi"

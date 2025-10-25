@@ -1,3 +1,4 @@
+from datetime import date
 import re
 
 from pydantic import (
@@ -14,12 +15,12 @@ class Article(BaseModel):
     summary: str | None = None
     doi: str | None = None
     journal_name: str
-    date: str
-    url: str | HttpUrl
+    date: date
+    url: HttpUrl
     # authors: list[Author]
     screening_decision: bool | None = None
     screening_reasoning: str | None = None
-    priority_decision: int | None = None
+    priority_decision: str | None = None
     priority_reasoning: str | None = None
     raw_contents: str
 

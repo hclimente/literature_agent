@@ -30,9 +30,9 @@ def insert_article(
     logging.info(f"Loaded {len(articles)} articles from {articles_json}.")
 
     for a in articles:
-        a["metadata_doi"] = a["metadata_doi"] if a["metadata_doi"] != "NULL" else None
+        a["doi"] = a["doi"] if a["doi"] != "NULL" else None
 
-        logging.info(f"Inserting article: {a['metadata_title'][:50]}...")
+        logging.info(f"Inserting article: {a['title'][:50]}...")
 
         with duckdb.connect(db_path) as con:
             try:
@@ -42,12 +42,12 @@ def insert_article(
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        a["metadata_title"],
-                        a["metadata_summary"],
+                        a["title"],
+                        a["summary"],
                         a["url"],
                         a["journal_name"],
                         a["date"],
-                        a["metadata_doi"],
+                        a["doi"],
                         a.get("screening_decision", None),
                         a.get("screening_reasoning", None),
                         a.get("priority_decision", None),

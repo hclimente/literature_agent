@@ -21,7 +21,7 @@ def validate_json_response(response_text: str, stage: str) -> dict:
         dict: The parsed JSON object.
     """
     if not response_text or not isinstance(response_text, str):
-        raise ValidationError(stage, response_text, "Empty or non-string response.")
+        raise ValidationError(response_text, "Empty or non-string response.")
 
     # remove ``` at the start and end if present
     if response_text.startswith("```json") and response_text.endswith("```"):
@@ -35,19 +35,14 @@ def validate_json_response(response_text: str, stage: str) -> dict:
     try:
         response = json.loads(response_text)
     except json.JSONDecodeError:
-        raise ValidationError(stage, response_text, "Response is not valid JSON.")
+        raise ValidationError(response_text, "Response is not valid JSON.")
 
     if not isinstance(response, list):
-        raise ValidationError(
-            stage,
-            response,
-            "Response should be a list.",
-        )
+        raise ValidationError(response, "Response should be a list.")
 
     for item in response:
         if not isinstance(item, dict):
             raise ValidationError(
-                stage,
                 response,
                 "Each item in the response list should be a dictionary.",
             )
@@ -101,7 +96,7 @@ def split_by_qc(
             articles_pass.append(item)
         else:
             error_msg = (
-                f"Article with {merge_key} '{k}' not found among passing articles."
+                f"Key {merge_key} '{k}' not found among passing {response_pass.keys()}."
             )
             handle_error(item, error_msg, allow_errors)
             articles_fail.append(item)
@@ -167,7 +162,7 @@ def validate_llm_response(
     for item in response:
         try:
             article = models[stage].model_validate(item)
-            key = str(getattr(article, merge_key))
+            key = getattr(article, merge_key)
             response_pass[key] = article
         except Exception as e:
             error_msg = f"Validation failed for item: {pprint(item)}\n{e}"

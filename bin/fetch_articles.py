@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import argparse
-import json
 import logging
 import time
 
 from dateutil.parser import parse
 import feedparser
+
+from common.models import Article, pprint
 
 
 def fetch_rss_feed(
@@ -97,12 +98,14 @@ def fetch_rss_feed(
             "date": item_date_naive.date().isoformat(),
             "raw_contents": str(item),
         }
-        articles.append(article_data)
+        article = Article.model_validate(article_data)
+        articles.append(article)
 
         logging.info(f"✅ Done processing item {i + 1}.")
 
     if articles:
-        json.dump(articles, open("articles.json", "w"), indent=2)
+        with open("articles.json", "w") as f:
+            f.write(pprint(articles))
 
     logging.info("✅ Done writing articles to JSON.")
 
