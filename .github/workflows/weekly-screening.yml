@@ -7,12 +7,6 @@ on:
 
   # Allow manual triggering
   workflow_dispatch:
-    inputs:
-      batch_size:
-        description: 'Batch size for processing articles'
-        required: false
-        default: '10'
-        type: string
 
 jobs:
   screen-papers:
@@ -61,14 +55,10 @@ jobs:
       env:
         NXF_ANSI_LOG: false
       run: |
-        BATCH_SIZE="${{ github.event.inputs.batch_size || '10' }}"
-
-        echo "Starting pipeline with batch_size=${BATCH_SIZE}"
-
         nextflow run main.nf \
           --journal_list config/journals.tsv \
           --research_interests config/research_interests.md \
-          --batch_size ${BATCH_SIZE} \
+          --backend zotero \
           -ansi-log false
 
     - name: Generate pipeline summary
@@ -78,7 +68,6 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Date**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
         echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Batch Size**: ${{ github.event.inputs.batch_size || '10' }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         if [ -f .nextflow.log ]; then
