@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import argparse
-import json
 import logging
 import time
 
 from dateutil.parser import parse
 import feedparser
+
+from common.models import Article, pprint
 
 
 def fetch_rss_feed(
@@ -23,7 +24,7 @@ def fetch_rss_feed(
         cutoff_date (str): The cutoff date for articles in ISO 8601 format (YYYY-MM-DD). Articles published after this date will be included. Defaults to "2025-10-12".
         max_items (int): The maximum number of items to return. Defaults to 3.
     Returns:
-        list: A list of dictionaries, each containing 'title', 'link', 'date', and 'raw_contents' of an article.
+        list: A list of dictionaries, each containing 'title', 'url', 'date', and 'raw_contents' of an article.
     """
 
     logging.info("-" * 20)
@@ -93,16 +94,18 @@ def fetch_rss_feed(
 
         article_data = {
             "journal_name": journal_name,
-            "link": item.link,
+            "url": item.link,
             "date": item_date_naive.date().isoformat(),
             "raw_contents": str(item),
         }
-        articles.append(article_data)
+        article = Article.model_validate(article_data)
+        articles.append(article)
 
         logging.info(f"✅ Done processing item {i + 1}.")
 
     if articles:
-        json.dump(articles, open("articles.json", "w"), indent=2)
+        with open("articles.json", "w") as f:
+            f.write(pprint(articles))
 
     logging.info("✅ Done writing articles to JSON.")
 

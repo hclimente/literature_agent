@@ -10,6 +10,7 @@ def batchFlattened(channel, batch_size) {
     return channel
         .buffer(size: batch_size, remainder: true)
         .map { batch -> toJson(batch) }
+        .take(2)
 }
 
 def batchArticles(channel, batch_size) {
@@ -18,6 +19,7 @@ def batchArticles(channel, batch_size) {
         .flatten()
         .buffer(size: batch_size, remainder: true)
         .map { batch -> toJson(batch) }
+        .take(2)
 }
 
 def filterAndBatch(channel, batch_size, key, value) {

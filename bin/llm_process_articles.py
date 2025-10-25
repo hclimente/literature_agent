@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import argparse
-import json
 import logging
 import os
+import pathlib
 
 from common.llm import llm_query
+from common.models import ArticleList, pprint
 from common.parsers import (
     add_articles_json_argument,
     add_llm_arguments,
@@ -13,7 +14,10 @@ from common.validation import (
     save_validated_responses,
     validate_llm_response,
 )
-from tools.metadata_tools import get_abstract_from_doi, springer_get_abstract_from_doi
+from tools.metadata_tools import (
+    get_abstract_from_doi,
+    springer_get_abstract_from_doi,
+)
 
 
 def llm_process_articles(
@@ -44,9 +48,10 @@ def llm_process_articles(
     logging.info(f"allow_qc_errors         : {allow_qc_errors}")
     logging.info("-" * 20)
 
-    articles = json.load(open(articles_json, "r"))
+    json_string = pathlib.Path(articles_json).read_text()
+    articles = ArticleList.validate_json(json_string)
     logging.info(f"Loaded {len(articles)} articles.")
-    logging.debug(f"articles: {articles}")
+    logging.debug(f"Articles: {pprint(articles)}")
 
     response_text = llm_query(
         articles=articles,
@@ -57,28 +62,20 @@ def llm_process_articles(
         llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
     )
 
-    response_pass, response_fail = validate_llm_response(
-        stage, response_text, allow_qc_errors
+    merge_key = "url" if stage == "metadata" else "doi"
+    response_pass = validate_llm_response(
+        stage=stage,
+        response_text=response_text,
+        merge_key=merge_key,
+        allow_qc_errors=allow_qc_errors,
     )
 
-    if stage == "metadata":
-        kwargs = {
-            "merge_key": "link",
-            "expected_fields": ["title", "summary", "doi"],
-        }
-    else:
-        kwargs = {
-            "merge_key": "metadata_doi",
-            "expected_fields": ["decision", "reasoning"],
-        }
-
     save_validated_responses(
-        articles,
-        response_pass,
-        response_fail,
-        allow_qc_errors,
-        stage,
-        **kwargs,
+        articles=articles,
+        response_pass=response_pass,
+        allow_qc_errors=allow_qc_errors,
+        stage=stage,
+        merge_key=merge_key,
     )
 
     logging.info(f"✅ Done {stage} articles.")
