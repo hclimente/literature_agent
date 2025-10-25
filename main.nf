@@ -9,12 +9,12 @@ process ZOTERO_SAVE {
 
     container 'community.wave.seqera.io/library/pip_pyzotero:0515279e22ea3dcf'
     secret 'ZOTERO_API_KEY'
-    secret 'ZOTERO_COLLECTION_ID'
-    secret 'ZOTERO_LIBRARY_TYPE'
-    secret 'ZOTERO_USER_ID'
 
     input:
     path ARTICLES_JSON
+    val ZOTERO_USER_ID
+    val ZOTERO_COLLECTION_ID
+    val ZOTERO_LIBRARY_TYPE
 
     script:
     """
@@ -126,7 +126,10 @@ workflow {
 
     // SAVE(final_batches, database_path)
     ZOTERO_SAVE(
-        batchArticles(prioritized_articles, 1000)
+        batchArticles(prioritized_articles, 1000),
+        params.zotero.user_id,
+        params.zotero.collection_id,
+        params.zotero.library_type
     )
     // UPDATE_TIMESTAMPS(SAVE.out.collect(), database_path)
 
