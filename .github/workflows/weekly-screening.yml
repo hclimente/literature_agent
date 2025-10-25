@@ -38,10 +38,18 @@ jobs:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         USER_EMAIL: ${{ secrets.USER_EMAIL }}
         SPRINGER_META_API_KEY: ${{ secrets.SPRINGER_META_API_KEY }}
+        ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
+        ZOTERO_USER_ID: ${{ secrets.ZOTERO_USER_ID }}
+        ZOTERO_LIBRARY_TYPE: ${{ secrets.ZOTERO_LIBRARY_TYPE }}
+        ZOTERO_COLLECTION_ID: ${{ secrets.ZOTERO_COLLECTION_ID }}
       run: |
         # Set Nextflow secrets from GitHub secrets
         nextflow secrets set GOOGLE_API_KEY "$GOOGLE_API_KEY"
         nextflow secrets set USER_EMAIL "$USER_EMAIL"
+        nextflow secrets set ZOTERO_API_KEY "$ZOTERO_API_KEY"
+        nextflow secrets set ZOTERO_USER_ID "$ZOTERO_USER_ID"
+        nextflow secrets set ZOTERO_LIBRARY_TYPE "$ZOTERO_LIBRARY_TYPE"
+        nextflow secrets set ZOTERO_COLLECTION_ID "$ZOTERO_COLLECTION_ID"
 
         # Optional secret - only set if available
         if [ -n "$SPRINGER_META_API_KEY" ]; then
