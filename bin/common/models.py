@@ -23,6 +23,7 @@ class Article(BaseModel):
     priority_decision: str | None = None
     priority_reasoning: str | None = None
     raw_contents: str
+    zotero_key: str | None = None
 
 
 ArticleList = TypeAdapter(list[Article])
