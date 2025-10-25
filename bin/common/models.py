@@ -58,10 +58,10 @@ class ScreeningResponse(BaseModel):
 
 class PriorityResponse(BaseModel):
     doi: str
-    decision: str
-    reasoning: str
+    priority_decision: str = Field(validation_alias="decision")
+    priority_reasoning: str = Field(validation_alias="reasoning")
 
-    @field_validator("decision", mode="before")
+    @field_validator("priority_decision", mode="before")
     @classmethod
     def clean_response(cls, decision: str) -> str:
         mapping = get_common_variations(["high", "medium", "low"])
