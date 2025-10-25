@@ -37,33 +37,33 @@ def remove_unprocessed_articles(
     articles = json.load(open(articles_json, "r"))
     logging.info(f"Loaded {len(articles)} articles from {articles_json}.")
 
-    links = [a["link"] for a in articles]
+    urls = [a["url"] for a in articles]
 
     with duckdb.connect(db_path) as con:
         con.execute("""
             CREATE TEMPORARY TABLE tmp_articles (
-                link TEXT,
+                url TEXT,
             );
         """)
 
         con.executemany(
             """
-            INSERT INTO tmp_articles (link)
+            INSERT INTO tmp_articles (url)
             VALUES (?);
         """,
-            [(link,) for link in links],
+            [(url,) for url in urls],
         )
 
         result = con.execute("""
-            SELECT a.link
+            SELECT a.url
             FROM tmp_articles a
             LEFT JOIN articles p
-            ON a.link = p.link
+            ON a.url = p.url
             WHERE p.title IS NULL;
         """).fetchall()
         logging.info(f"Found {len(result)} unprocessed articles.")
 
-    unprocessed_articles = [a for a in articles if (a["link"],) in result]
+    unprocessed_articles = [a for a in articles if (a["url"],) in result]
 
     if unprocessed_articles:
         json.dump(

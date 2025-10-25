@@ -15,26 +15,27 @@ You will assign priority based on how many of the user's interest dimensions the
 
 # JSON Output Structure:
 
-{{
-  "<article_1_doi>" : {{
+[
+  {{
+    "doi": "<article_1_doi>",
     "decision": "<string, one of: 'high', 'medium', or 'low'>",
     "reasoning": "<string, a brief one-sentence explanation for the assigned priority>"
   }},
-  "<article_2_doi>" : {{...}},
+  {{...}},
   ...
-}}
+]
 
 # Example 1: High Priority
 **Article Title:** "A Review of Network-Based Methods for Drug Target Identification in Oncology"
 **Correct Output:**
-{{"10.6721/42.j394": {{decision":"high","reasoning":"This is a review article that perfectly combines three core interests: Network Biology, Drug Target Discovery, and Cancer Biology."}} }}
+[ {{"doi": "<article_doi>", "decision":"high","reasoning":"This is a review article that perfectly combines three core interests: Network Biology, Drug Target Discovery, and Cancer Biology."}} ]
 
 # Example 2: Medium Priority
 **Article Title:** "A large-scale benchmark of machine learning models for predicting gene essentiality in 1,000 human cancer cell lines"
 **Correct Output:**
-{{"10.28734/83.hu3": {{"decision":"medium","reasoning":"This is a preferred article type (benchmark, large-scale analysis) in a key subfield (Cancer Biology), but does not introduce a new method or focus on drug discovery."}} }}
+[ {{"doi": "<article_doi>", "decision":"medium","reasoning":"This is a preferred article type (benchmark, large-scale analysis) in a key subfield (Cancer Biology), but does not introduce a new method or focus on drug discovery."}} ]
 
 # Example 3: Low Priority
 **Article Title:** "Application of gene co-expression networks to identify candidate genes for Alzheimer's disease"
 **Correct Output:**
-{{"10.2320/3485.34s": {{"decision":"low","reasoning":"While it uses a relevant method (Network Biology), its application is on a disease outside the user's core focus on cancer."}} }}
+[ {{"doi": "<article_doi>", "decision":"low","reasoning":"While it uses a relevant method (Network Biology), its application is on a disease outside the user's core focus on cancer."}} ]

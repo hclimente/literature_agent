@@ -3,6 +3,8 @@ process EXTRACT_METADATA {
     container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
     label 'gemini_api'
     secret 'GOOGLE_API_KEY'
+    secret 'SPRINGER_META_API_KEY'
+    secret 'USER_EMAIL'
 
     input:
     path ARTICLES_JSON
