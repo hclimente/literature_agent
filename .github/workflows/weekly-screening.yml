@@ -58,7 +58,8 @@ jobs:
         nextflow run main.nf \
           --journal_list config/journals.tsv \
           --research_interests config/research_interests.md \
-          --backend zotero \
+          --backend_from tsv \
+          --backend_to zotero \
           -ansi-log false
 
     - name: Generate pipeline summary
