@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 import argparse
-import json
 import logging
 import os
+import pathlib
 
 from pyzotero import zotero
 
 from common.models import (
     Article,
+    ArticleList,
 )
 from common.parsers import (
     add_articles_json_argument,
@@ -26,7 +27,7 @@ def create_zotero_article(
     zotero_article["publicationTitle"] = item.journal_name
     zotero_article["date"] = item.date.isoformat()
     zotero_article["DOI"] = item.doi
-    zotero_article["url"] = item.url
+    zotero_article["url"] = str(item.url)
 
     # Optional fields - populate if available
     # zotero_article['volume'] = metadata["volume"]
@@ -47,20 +48,20 @@ def create_zotero_article(
     # zotero_article['rights'] = metadata["rights"]
 
     # Add creators/authors if available
-    zotero_article["creators"] = []
-    for author in item.authors:
-        if "firstName" in author and "lastName" in author:
-            zotero_article["creators"].append(
-                {
-                    "creatorType": "author",
-                    "firstName": author["firstName"],
-                    "lastName": author["lastName"],
-                }
-            )
-        elif "name" in author:
-            zotero_article["creators"].append(
-                {"creatorType": "author", "name": author["name"]}
-            )
+    # zotero_article["creators"] = []
+    # for author in item.authors:
+    #     if "firstName" in author and "lastName" in author:
+    #         zotero_article["creators"].append(
+    #             {
+    #                 "creatorType": "author",
+    #                 "firstName": author["firstName"],
+    #                 "lastName": author["lastName"],
+    #             }
+    #         )
+    #     elif "name" in author:
+    #         zotero_article["creators"].append(
+    #             {"creatorType": "author", "name": author["name"]}
+    #         )
 
     # Add tags based on screening/priority
     zotero_article["tags"] = []
@@ -150,7 +151,8 @@ def insert_article(
         zotero_user_id, zotero_library_type, os.environ.get("ZOTERO_API_KEY")
     )
 
-    articles = json.load(open(articles_json, "r"))
+    json_string = pathlib.Path(articles_json).read_text()
+    articles = ArticleList.validate_json(json_string)
     logging.info(f"Loaded {len(articles)} articles from {articles_json}.")
 
     articles_to_insert = []
@@ -158,9 +160,7 @@ def insert_article(
     counter = 0
 
     for i, item in enumerate(articles):
-        logging.info(f"Processing article: {item['metadata_title'][:50]}...")
-
-        item = Article.model_validate(item)
+        logging.info(f"Processing '{item.title[:50]}...'")
 
         zotero_item = create_zotero_article(item, zotero_collection_id, zot)
 
@@ -177,7 +177,7 @@ def insert_article(
     notes_to_insert = []
 
     for i, item in enumerate(articles):
-        logging.info(f"Processing notes: {item['metadata_title'][:50]}...")
+        logging.info(f"Processing notes for '{item.title[:50]}...'")
 
         setattr(item, "zotero_key", zotero_keys[item.doi])
         note = create_zotero_note(item, zot)

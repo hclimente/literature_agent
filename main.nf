@@ -1,30 +1,15 @@
+include { FETCH_ARTICLES } from './modules/rss/main'
 include { EXTRACT_METADATA; SCREEN; PRIORITIZE } from './modules/agentic/main'
 include { EXTRACT_METADATA as EXTRACT_METADATA_RETRY } from './modules/agentic/main'
 include { SCREEN as SCREEN_RETRY } from './modules/agentic/main'
 include { PRIORITIZE as PRIORITIZE_RETRY } from './modules/agentic/main'
-include { CREATE_ARTICLES_DB; FETCH_JOURNALS; FETCH_ARTICLES; REMOVE_PROCESSED; SAVE; UPDATE_TIMESTAMPS} from './modules/db/main'
-include { batchArticles; filterAndBatch } from './lib/batch_utils.nf'
 
-process ZOTERO_SAVE {
-
-    container 'community.wave.seqera.io/library/pip_pyzotero:0515279e22ea3dcf'
-    secret 'ZOTERO_API_KEY'
-
-    input:
-    path ARTICLES_JSON
-    val ZOTERO_USER_ID
-    val ZOTERO_COLLECTION_ID
-    val ZOTERO_LIBRARY_TYPE
-
-    script:
-    """
-    zotero_insert_article.py \
---articles_json ${ARTICLES_JSON} \
---zotero_user_id ${ZOTERO_USER_ID} \
---zotero_library_type ${ZOTERO_LIBRARY_TYPE} \
---zotero_collection_id ${ZOTERO_COLLECTION_ID}
-    """
+if (params.backend == "local") {
+    include { CREATE_ARTICLES_DB; FETCH_JOURNALS; REMOVE_PROCESSED; SAVE; UPDATE_TIMESTAMPS } from './modules/db/main'
+} else if (params.backend == "zotero") {
+    include { SAVE } from './modules/zotero/main'
 }
+include { batchArticles; filterAndBatch } from './lib/batch_utils.nf'
 
 workflow {
 
@@ -125,7 +110,7 @@ workflow {
     final_batches = batchArticles(all_articles, 100)
 
     // SAVE(final_batches, database_path)
-    ZOTERO_SAVE(
+    SAVE(
         batchArticles(prioritized_articles, 1000),
         params.zotero.user_id,
         params.zotero.collection_id,
