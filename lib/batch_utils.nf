@@ -7,19 +7,21 @@ def toJson(article_list) {
 }
 
 def batchFlattened(channel, batch_size) {
-    return channel
+    def result = channel
         .buffer(size: batch_size, remainder: true)
         .map { batch -> toJson(batch) }
-        .take(2)
+
+    return params.debug ? result.take(2) : result
 }
 
 def batchArticles(channel, batch_size) {
-    return channel
+    def result = channel
         .splitJson()
         .flatten()
         .buffer(size: batch_size, remainder: true)
         .map { batch -> toJson(batch) }
-        .take(2)
+
+    return params.debug ? result.take(2) : result
 }
 
 def filterAndBatch(channel, batch_size, key, value) {
