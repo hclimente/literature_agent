@@ -44,7 +44,7 @@ process FETCH_JOURNALS {
 
 process FETCH_ARTICLES {
 
-    container 'community.wave.seqera.io/library/pip_feedparser_python-dateutil:2bbb86f41337cff4'
+    container 'community.wave.seqera.io/library/pip_feedparser_pydantic_python-dateutil:e334b7c08b3cb424'
     tag { JOURNAL_NAME }
 
     input:

@@ -12,36 +12,37 @@ Your **only** criterion is whether the individual articles' main topic is a dire
 *   **Fail:** The article is purely clinical (e.g., patient trials), purely wet-lab experimental, focuses on non-human models (mouse, yeast, etc.), or is in an unrelated domain.
 
 # JSON Output Structure:
-{{
-  "<article_1_doi>" : {{
+[
+  {{
+    "doi": "<article_1_doi>",
     "decision": <boolean>,
     "reasoning": "<string, a very brief one-sentence explanation for the decision>"
   }},
-  "<article_2_doi>" : {{...}},
+  {{...}},
   ...
-}}
+]
 
 # Example 1: Perfect Match (Review in Core Area)
 **Article Title:** "A Review of Network-Based Methods for Drug Target Identification in Oncology"
 **Correct Output:**
-{{"<article_doi>" : {{"decision":true,"reasoning":"This is a review article directly combining the key subfields of Network Biology, Drug Target Discovery, and Cancer Biology."}} }}
+[ {{"doi": "<article_doi>", "decision":true,"reasoning":"This is a review article directly combining the key subfields of Network Biology, Drug Target Discovery, and Cancer Biology."}} ]
 
 # Example 2: FAIL (Non-Human Model)
 **Article Title:** "Single-cell RNA-seq analysis of neurogenesis in the adult mouse hippocampus"
 **Correct Output:**
-{{"<article_doi>" : {{"decision":false,"reasoning":"The study focuses on a non-human model (mouse), which is outside the required scope."}} }}
+[ {{"doi": "<article_doi>", "decision":false,"reasoning":"The study focuses on a non-human model (mouse), which is outside the required scope."}} ]
 
 # Example 3: PASS (New Computational Method)
 **Article Title:** "GraphReg: A new statistical framework for inferring gene regulatory networks from human genomic data"
 **Correct Output:**
-{{"<article_doi>" : {{"decision":true,"reasoning":"The article presents a new computational method relevant to Network Biology and Statistical Genetics in a human context."}} }}
+[ {{"doi": "<article_doi>", "decision":true,"reasoning":"The article presents a new computational method relevant to Network Biology and Statistical Genetics in a human context."}} ]
 
 # Example 4: FAIL (Wrong Methodology - Clinical)
 **Article Title:** "Phase II Clinical Trial Results for a Novel Kinase Inhibitor in Human Lung Cancer"
 **Correct Output:**
-{{"<article_doi>" : {{"decision":false,"reasoning":"This article describes a clinical trial, not a computational or methodological study."}} }}
+[ {{"doi": "<article_doi>", "decision":false,"reasoning":"This article describes a clinical trial, not a computational or methodological study."}} ]
 
 # Example 5: PASS (Methodological Paper)
 **Article Title:** "Hyper-parameter optimization in Machine learning"
 **Correct Output:**
-{{"<article_doi>" : {{"decision":true,"reasoning":"The article provides an overview on a primary field of interest."}} }}
+[ {{"doi": "<article_doi>", "decision":true,"reasoning":"The article provides an overview on a primary field of interest."}} ]
