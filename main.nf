@@ -5,6 +5,21 @@ include { PRIORITIZE as PRIORITIZE_RETRY } from './modules/agentic/main'
 include { CREATE_ARTICLES_DB; FETCH_JOURNALS; FETCH_ARTICLES; REMOVE_PROCESSED; SAVE; UPDATE_TIMESTAMPS} from './modules/db/main'
 include { batchArticles; filterAndBatch } from './lib/batch_utils.nf'
 
+process ZOTERO_SAVE {
+
+    container 'community.wave.seqera.io/library/pip_pyzotero:0515279e22ea3dcf'
+    secret 'ZOTERO_API_KEY'
+
+    input:
+    path ARTICLES_JSON
+
+    script:
+    """
+    zotero_insert_article.py \
+--articles_json ${ARTICLES_JSON}
+    """
+}
+
 workflow {
 
     database_path = file(params.database_path)
@@ -90,11 +105,15 @@ workflow {
 
     prioritized_articles = PRIORITIZE.out.pass
         .concat(PRIORITIZE_RETRY.out.pass)
+    all_articles = prioritized_articles
         .concat(filtered_metadata.match)
         .concat(filtered_screened.no_match)
-    final_batches = batchArticles(prioritized_articles, 100)
+    final_batches = batchArticles(all_articles, 100)
 
-    SAVE(final_batches, database_path)
-    UPDATE_TIMESTAMPS(SAVE.out.collect(), database_path)
+    // SAVE(final_batches, database_path)
+    ZOTERO_SAVE(
+        batchArticles(prioritized_articles, 1000)
+    )
+    // UPDATE_TIMESTAMPS(SAVE.out.collect(), database_path)
 
 }

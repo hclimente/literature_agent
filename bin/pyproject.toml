@@ -7,5 +7,6 @@ requires-python = ">=3.10"
 dependencies = [
     "duckdb>=1.4.1",
     "google-adk>=1.16.0",
+    "pyzotero>=1.7.3",
     "requests>=2.32.5",
 ]
