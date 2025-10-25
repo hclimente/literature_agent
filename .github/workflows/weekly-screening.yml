@@ -50,24 +50,6 @@ jobs:
 
         echo "✓ Nextflow secrets configured"
 
-    - name: Download existing database artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: papers-database
-        path: .
-      continue-on-error: true  # First run won't have this artifact
-
-    - name: Check if database exists
-      id: check_db
-      run: |
-        if [ -f papers_please.duckdb ]; then
-          echo "Database found from artifact"
-          echo "db_exists=true" >> $GITHUB_OUTPUT
-        else
-          echo "No existing database, will create new one"
-          echo "db_exists=false" >> $GITHUB_OUTPUT
-        fi
-
     - name: Run Nextflow pipeline
       env:
         NXF_ANSI_LOG: false
@@ -75,22 +57,12 @@ jobs:
         BATCH_SIZE="${{ github.event.inputs.batch_size || '10' }}"
 
         echo "Starting pipeline with batch_size=${BATCH_SIZE}"
-        echo "Database exists: ${{ steps.check_db.outputs.db_exists }}"
 
         nextflow run main.nf \
           --journal_list config/journals.tsv \
           --research_interests config/research_interests.md \
           --batch_size ${BATCH_SIZE} \
           -ansi-log false
-
-    - name: Upload updated database artifact
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: papers-database
-        path: papers_please.duckdb
-        retention-days: 90
-        compression-level: 9
 
     - name: Generate pipeline summary
       if: always()
@@ -100,7 +72,6 @@ jobs:
         echo "- **Date**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
         echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Batch Size**: ${{ github.event.inputs.batch_size || '10' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Database Status**: ${{ steps.check_db.outputs.db_exists == 'true' && 'Updated existing' || 'Created new' }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         if [ -f .nextflow.log ]; then
