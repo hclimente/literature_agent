@@ -1,6 +1,10 @@
 import json
 import logging
-import re
+
+from .models import (
+    MetadataResponse,
+    pprint,
+)
 
 
 def validate_json_response(response_text: str, stage: str) -> dict:
@@ -31,19 +35,79 @@ def validate_json_response(response_text: str, stage: str) -> dict:
     except json.JSONDecodeError:
         raise ValidationError(stage, response_text, "Response is not valid JSON.")
 
-    if not isinstance(response, dict):
+    if not isinstance(response, list):
         raise ValidationError(
             stage,
             response,
-            "Response should be a dictionary.",
+            "Response should be a list.",
         )
+
+    for item in response:
+        if not isinstance(item, dict):
+            raise ValidationError(
+                stage,
+                response,
+                "Each item in the response list should be a dictionary.",
+            )
 
     return response
 
 
-def handle_error(
-    d: dict, error_msg: str, stage: str, allow_errors: bool = False
-) -> dict:
+def split_by_qc(
+    articles,
+    response_pass,
+    allow_errors,
+    merge_key="metadata_doi",
+):
+    """
+    Split articles into those that passed and failed QC.
+
+    Args:
+        articles (list): List of articles.
+        qc_pass (dict): Articles that passed validation.
+        allow_errors (bool): Whether to allow errors without raising exceptions.
+        merge_key (str): The key to use for merging articles with QC results.
+
+    Returns:
+        tuple: (articles_pass, articles_fail)
+    """
+    articles_pass = []
+    articles_fail = []
+
+    for item in articles:
+        k = getattr(item, merge_key)
+
+        if k in response_pass:
+            for new_field in response_pass[k].model_fields:
+                try:
+                    setattr(item, new_field, getattr(response_pass[k], new_field))
+                except KeyError:
+                    error_msg = (
+                        f"Expected field '{new_field}' not found in QC pass data."
+                    )
+                    handle_error(item, error_msg, allow_errors)
+                    articles_fail.append(item)
+                    continue
+                except ValidationError:
+                    error_msg = (
+                        f"Validation error for field '{new_field}' in QC pass data."
+                    )
+                    handle_error(item, error_msg, allow_errors)
+                    articles_fail.append(item)
+                    continue
+
+            articles_pass.append(item)
+        else:
+            error_msg = (
+                f"Article with {merge_key} '{k}' not found among passing articles."
+            )
+            handle_error(item, error_msg, allow_errors)
+            articles_fail.append(item)
+
+    return articles_pass, articles_fail
+
+
+def handle_error(item: dict, error_msg: str, allow_errors: bool = False) -> dict:
     """
     Handle error messages.
 
@@ -58,74 +122,22 @@ def handle_error(
     """
     if allow_errors:
         logging.warning(f"⚠️ {error_msg}")
-        d[f"{stage}_error"] = error_msg
-        return d
+        logging.warning(f"⚠️ Article data: {item}")
     else:
-        raise ValidationError(stage, d, error_msg)
-
-
-def split_by_qc(
-    articles,
-    qc_pass,
-    qc_fail,
-    stage,
-    allow_errors,
-    merge_key="metadata_doi",
-    expected_fields=["decision", "reasoning"],
-):
-    """
-    Split articles into those that passed and failed QC.
-
-    Args:
-        articles (list): List of articles.
-        qc_pass (dict): Articles that passed validation.
-        qc_fail (dict): Articles that failed validation.
-        stage (str): The processing stage (e.g., "screening", "priority").
-        allow_errors (bool): Whether to allow errors without raising exceptions.
-        merge_key (str): The key to use for merging articles with QC results.
-        expected_fields (list): List of expected fields in the QC results.
-
-    Returns:
-        tuple: (articles_pass, articles_fail)
-    """
-    articles_pass = []
-    articles_fail = []
-
-    for a in articles:
-        k = a[merge_key]
-
-        if k in qc_pass:
-            for f in expected_fields:
-                try:
-                    a[f"{stage}_{f}"] = qc_pass[k][f]
-                except KeyError:
-                    error_msg = f"Expected field '{f}' not found in QC pass data."
-                    a = handle_error(a, error_msg, stage, allow_errors)
-                    articles_fail.append(a)
-                    continue
-
-            articles_pass.append(a)
-        elif k in qc_fail:
-            articles_fail.append(a)
-        else:
-            error_msg = f"Article {merge_key} not found in LLM output."
-            a = handle_error(a, error_msg, stage, allow_errors)
-            articles_fail.append(a)
-
-    return articles_pass, articles_fail
+        raise ValidationError(item, error_msg)
 
 
 class ValidationError(Exception):
-    def __init__(self, field, value, reason):
-        error_msg = f"Validation failed for {field} with value '{value}': {reason}"
-
+    def __init__(self, item, error_msg):
         logging.error(f"❌ {error_msg}")
+        logging.error(f"❌ Article data: {item}")
         super().__init__(error_msg)
 
 
 def validate_llm_response(
     stage: str,
     response_text: str,
+    merge_key: str,
     allow_qc_errors: bool,
 ) -> tuple:
     """
@@ -142,33 +154,30 @@ def validate_llm_response(
     logging.info(f"Began validating {stage} response...")
     response = validate_json_response(response_text, stage)
 
-    if stage == "metadata":
-        response_pass, response_fail = validate_metadata_response(
-            stage, response, allow_qc_errors
-        )
-    elif stage == "screening":
-        response_pass, response_fail = validate_screening_response(
-            stage, response, allow_qc_errors
-        )
-    elif stage == "priority":
-        response_pass, response_fail = validate_priority_response(
-            stage, response, allow_qc_errors
-        )
-    else:
-        raise
+    response_pass = {}
 
-    logging.info(f"Validated Screening for {len(response_pass)} articles.")
-    logging.debug(f"Screening Pass: {response_pass}")
-    logging.info(f"Invalid Screening for {len(response_fail)} articles.")
-    logging.debug(f"Screening Fail: {response_fail}")
+    models = {
+        "metadata": MetadataResponse,
+    }
 
-    return response_pass, response_fail
+    for item in response:
+        try:
+            article = models[stage].model_validate(item)
+            key = str(getattr(article, merge_key))
+            response_pass[key] = article
+        except Exception as e:
+            error_msg = f"Validation failed for item: {pprint(item)}\n{e}"
+            handle_error(item, error_msg, allow_qc_errors)
+
+    logging.info(f"Valid response for {len(response_pass)} articles.")
+    logging.debug(f"Valid items: {pprint(response_pass)}")
+
+    return response_pass
 
 
 def save_validated_responses(
     articles: list,
     response_pass: dict,
-    response_fail: dict,
     allow_qc_errors: bool,
     stage: str,
     **kwargs,
@@ -184,14 +193,17 @@ def save_validated_responses(
         stage (str): The processing stage (e.g., "screening", "priority").
     """
     articles_pass, articles_fail = split_by_qc(
-        articles, response_pass, response_fail, stage, allow_qc_errors, **kwargs
+        articles, response_pass, allow_qc_errors, **kwargs
     )
-    logging.debug(f"Articles Pass: {articles_pass}")
-    logging.debug(f"Articles Fail: {articles_fail}")
+    logging.debug(f"Articles Pass: {pprint(articles_pass)}")
+    logging.debug(f"Articles Fail: {pprint(articles_fail)}")
     if articles_pass:
-        json.dump(articles_pass, open(f"{stage}_pass.json", "w"), indent=2)
+        with open(f"{stage}_pass.json", "w") as f:
+            f.write(pprint(articles_pass))
     if articles_fail:
-        json.dump(articles_fail, open(f"{stage}_fail.json", "w"), indent=2)
+        with open(f"{stage}_fail.json", "w") as f:
+            f.write(pprint(articles_fail))
+
     logging.info("✅ Done validating screening response.")
 
 
@@ -283,75 +295,6 @@ def get_common_variations(expected_values: list):
 
     d.update(update)
     return d
-
-
-def validate_metadata_response(
-    stage: str, metadata: dict, allow_errors: bool = False
-) -> tuple:
-    """
-    Validate and parse AI metadata response.
-
-    Args:
-        stage (str): The processing stage.
-        metadata (dict): The AI response in JSON format.
-        allow_errors (bool): Whether to allow errors without raising exceptions.
-
-    Returns:
-        tuple[dict, dict]: A tuple containing two dictionaries:
-            - articles_pass: Articles that passed validation.
-            - articles_fail: Articles that failed validation with error messages.
-    """
-
-    articles_pass = {}
-    articles_fail = {}
-
-    for k, d in metadata.items():
-        if not d or not isinstance(d, dict):
-            articles_fail[k] = handle_error(
-                d, "Empty or non-dict response.", stage, allow_errors
-            )
-            continue
-
-        if not all(k in d for k in ["title", "summary", "doi"]):
-            articles_fail[k] = handle_error(
-                d, "Missing keys (title, summary, doi).", stage, allow_errors
-            )
-            continue
-
-        # Validate individual fields
-        if not d["title"]:
-            articles_fail[k] = handle_error(
-                d, "Title cannot be empty.", stage, allow_errors
-            )
-            continue
-        else:
-            d["title"] = sanitize_text(d["title"].strip())
-
-        if not d["summary"]:
-            articles_fail[k] = handle_error(
-                d, "Summary cannot be empty.", stage, allow_errors
-            )
-            continue
-        else:
-            d["summary"] = d["summary"].strip()
-
-        if not d["doi"]:
-            articles_fail[k] = handle_error(
-                d, "DOI cannot be empty.", stage, allow_errors
-            )
-            continue
-
-        elif d["doi"] != "NULL":
-            if not re.match(r"^10\.\d{4,}/[^\s]+$", d["doi"]):
-                articles_fail[k] = handle_error(
-                    d, "Invalid DOI format.", stage, allow_errors
-                )
-                continue
-            d["doi"] = d["doi"].strip()
-
-        articles_pass[k] = d
-
-    return articles_pass, articles_fail
 
 
 def validate_screening_response(

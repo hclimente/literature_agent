@@ -38,13 +38,13 @@ def insert_article(
             try:
                 con.execute(
                     """
-                    INSERT INTO articles (title, summary, link, journal_name, date, doi, screening_decision, screening_reasoning, priority, priority_reasoning)
+                    INSERT INTO articles (title, summary, url, journal_name, date, doi, screening_decision, screening_reasoning, priority, priority_reasoning)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         a["metadata_title"],
                         a["metadata_summary"],
-                        a["link"],
+                        a["url"],
                         a["journal_name"],
                         a["date"],
                         a["metadata_doi"],
