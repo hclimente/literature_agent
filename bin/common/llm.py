@@ -3,6 +3,8 @@ import logging
 from google import genai
 from google.genai import types
 
+from .models import pprint
+
 
 def llm_query(
     articles: str,
@@ -51,7 +53,7 @@ def llm_query(
         )
     logging.debug(f"System prompt: {system_instruction}")
 
-    prompt = f"Here are the articles: {articles}"
+    prompt = f"Here are the articles: {pprint(articles)}"
     logging.debug(f"User prompt: {prompt}")
 
     response_text = client.models.generate_content(

@@ -71,7 +71,7 @@ workflow {
 
     screened_articles = SCREEN.out.pass
         .concat(SCREEN_RETRY.out.pass)
-    filtered_screened = filterAndBatch(screened_articles, params.batch_size, "screening_decision", "true")
+    filtered_screened = filterAndBatch(screened_articles, params.batch_size, "screening_decision", true)
     PRIORITIZE(
         filtered_screened.match,
         file(params.prioritization.system_prompt),

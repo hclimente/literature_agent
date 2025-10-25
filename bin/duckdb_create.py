@@ -78,7 +78,7 @@ def create_articles_table(db_path: str):
                 title TEXT NOT NULL,
                 journal_name TEXT,
                 summary TEXT NOT NULL,
-                link TEXT NOT NULL,
+                url TEXT NOT NULL,
                 date DATE NOT NULL,
                 doi TEXT DEFAULT NULL,
                 screening_decision BOOLEAN DEFAULT NULL,
@@ -86,7 +86,7 @@ def create_articles_table(db_path: str):
                 priority priority_level DEFAULT NULL,
                 priority_reasoning TEXT DEFAULT NULL,
                 FOREIGN KEY (journal_name) REFERENCES sources(name),
-                PRIMARY KEY (link)
+                PRIMARY KEY (url)
             )
             """)
         logging.info("✅ Done creating articles table")
