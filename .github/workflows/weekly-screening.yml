@@ -55,11 +55,18 @@ jobs:
       env:
         NXF_ANSI_LOG: false
       run: |
+        DEBUG_FLAG=""
+        if [ "${{ github.ref_name }}" != "main" ]; then
+          DEBUG_FLAG="--debug"
+        fi
+
         nextflow run main.nf \
           --journal_list config/journals.tsv \
           --research_interests config/research_interests.md \
-          --backend zotero \
-          -ansi-log false
+          --backend_from tsv \
+          --backend_to zotero \
+          -ansi-log false \
+          $DEBUG_FLAG
 
     - name: Generate pipeline summary
       if: always()
