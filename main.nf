@@ -9,13 +9,13 @@ include { batchArticles; filterAndBatch } from './modules/json'
 
 workflow {
 
-    if (params.backend_from == "duckdb") {
+    if (params.backend.from == "duckdb") {
         FROM_DUCKDB(file(params.journals_tsv))
         articles_to_process = FROM_DUCKDB.out
-    } else if (params.backend_from == "journals_tsv") {
+    } else if (params.backend.from == "journals_tsv") {
         FROM_TABULAR(file(params.journals_tsv))
         articles_to_process = FROM_TABULAR.out
-    } else if (params.backend_from == "articles_json") {
+    } else if (params.backend.from == "articles_json") {
         FROM_JSON(file(params.from_json.input))
         articles_to_process = FROM_JSON.out
     } else {
@@ -24,11 +24,11 @@ workflow {
 
     PROCESS_ARTICLES(articles_to_process)
 
-    if (params.backend_to == "duckdb") {
+    if (params.backend.to == "duckdb") {
         TO_DUCKDB(PROCESS_ARTICLES.out.all_articles)
-    } else if (params.backend_to == "zotero") {
+    } else if (params.backend.to == "zotero") {
         TO_ZOTERO(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 1000))
-    } else if (params.backend_to == "articles_json") {
+    } else if (params.backend.to == "articles_json") {
         TO_JSON(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 1000))
     } else {
         error "Unsupported backend: ${params.backend}. Supported backends are 'duckdb', 'zotero', and 'articles_json'."

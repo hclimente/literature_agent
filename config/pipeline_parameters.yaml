@@ -1,5 +1,5 @@
 # ===========================
-# User Configuration
+# MAIN PARAMETERS
 # ===========================
 # These are the main parameters you'll want to customize
 research_interests: "${projectDir}/config/research_interests.md"
@@ -11,12 +11,17 @@ zotero:
     library_type: "user"
 
 # ===========================
+# OTHER PARAMETERS
+# ===========================
+# Uncomment and set these parameters only if you want to override the default settings
+# provided in nextflow.config
+
+# ===========================
 # Backend Configuration
 # ===========================
-# options: "articles_json", "duckdb", "journals_tsv"
-# backend_from: "journals_tsv"
-# options: "articles_json", "duckdb", "zotero"
-# backend_to: "articles_json"
+# backend:
+#     from: "journals_tsv"   # Options: "articles_json", "duckdb", "journals_tsv"
+#     to:   "articles_json"  # Options: "articles_json", "duckdb", "zotero"
 
 # backend-specific parameters
 # duckdb:
