@@ -8,11 +8,11 @@ An agentic-workflow to assist researchers in staying up-to-date with literature 
 - Docker
 - Add the following secrets to Nextflow's secret store:
     - Required:
-        - `GOOGLE_API_KEY`: get it from [Google AI Studio API key](https://aistudio.google.com/app/api-keys)
-        - `USER_EMAIL`: your email address, to fetch metadata from the NCBI API
+        - `GOOGLE_API_KEY`, from [Google AI Studio API key](https://aistudio.google.com/app/api-keys). Used to query Gemini to screen and prioritize articles.
+        - `USER_EMAIL`, containing your email address. Used to fetch metadata from the NCBI and CrossRef APIs.
     - Optional, for additional capabilities:
-        - `SPRINGER_META_API_KEY`: get an account from [Springer](https://dev.springernature.com/) to get article metadata.
-        - `ZOTERO_API_KEY`: get it from your [Zotero settings](https://www.zotero.org/settings/keys) to save articles directly to your Zotero library. It requires additional configuration in `nextflow.config`.
+        - `SPRINGER_META_API_KEY`, from [Springer](https://dev.springernature.com/). Used to get article metadata.
+        - `ZOTERO_API_KEY`, from the [Zotero settings](https://www.zotero.org/settings/keys). Used to save articles directly to your Zotero library. It requires [additional configuration](config/config.yaml).
 
 <details>
 
@@ -53,8 +53,7 @@ The workflow will fetch the latest articles from the specified journals, screen 
     "publication_date": "2025-10-19",
     "priority_decision": "low",
     "url": "https://doi.org/xx.xxxx/xxxxx"
-  },
-  ...
+  }
 ]
 ```
 
