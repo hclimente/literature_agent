@@ -61,7 +61,7 @@ def split_by_qc(
 
     Args:
         articles (list): List of articles.
-        qc_pass (dict): Articles that passed validation.
+        response_pass (dict): Articles that passed validation.
         allow_errors (bool): Whether to allow errors without raising exceptions.
         merge_key (str): The key to use for merging articles with QC results.
 
@@ -106,12 +106,11 @@ def split_by_qc(
 
 def handle_error(item: dict, error_msg: str, allow_errors: bool = False) -> dict:
     """
-    Handle error messages.
+    Handle error messages during validation.
 
     Args:
-        d (dict): The dictionary containing the article data.
+        item (dict): The dictionary containing the article data.
         error_msg (str): The error message to handle.
-        stage (str): The processing stage (e.g., "screening", "priority").
         allow_errors (bool): Whether to allow errors without raising exceptions.
 
     Returns:
@@ -125,6 +124,8 @@ def handle_error(item: dict, error_msg: str, allow_errors: bool = False) -> dict
 
 
 class ValidationError(Exception):
+    """Exception raised for validation errors during article processing."""
+
     def __init__(self, item, error_msg):
         logging.error(f"❌ {error_msg}")
         logging.error(f"❌ Article data: {item}")
@@ -143,10 +144,11 @@ def validate_llm_response(
     Args:
         stage (str): The processing stage (e.g., "metadata", "screening", "priority").
         response_text (str): The AI response text.
+        merge_key (str): The key to use for merging articles with QC results.
         allow_qc_errors (bool): Whether to allow errors without failing the process.
 
     Returns:
-        tuple: (response_pass, response_fail)
+        dict: Articles that passed validation, keyed by merge_key.
     """
     logging.info(f"Began validating {stage} response...")
     response = validate_json_response(response_text, stage)
@@ -187,9 +189,9 @@ def save_validated_responses(
     Args:
         articles (list): List of articles to validate.
         response_pass (dict): Articles that passed validation.
-        response_fail (dict): Articles that failed validation.
         allow_qc_errors (bool): Whether to allow errors without failing the process.
         stage (str): The processing stage (e.g., "screening", "priority").
+        **kwargs: Additional keyword arguments passed to split_by_qc.
     """
 
     logging.info("Began saving validating responses...")
@@ -209,7 +211,7 @@ def save_validated_responses(
     logging.info("✅ Done validating responses.")
 
 
-def get_common_variations(expected_values: list):
+def get_common_variations(expected_values: list) -> dict:
     """
     Generate common variations of expected values (case, quotes, punctuation).
 

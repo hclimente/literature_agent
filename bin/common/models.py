@@ -11,6 +11,8 @@ from pydantic import (
 
 
 class Article(BaseModel):
+    """Model representing a scientific article with metadata and processing results."""
+
     title: str | None = None
     summary: str | None = None
     doi: str | None = None
@@ -30,6 +32,8 @@ ArticleList = TypeAdapter(list[Article])
 
 
 class MetadataResponse(BaseModel):
+    """Model for LLM response containing article metadata."""
+
     title: str
     summary: str
     url: HttpUrl
@@ -44,6 +48,8 @@ class MetadataResponse(BaseModel):
 
 
 class ScreeningResponse(BaseModel):
+    """Model for LLM response containing article screening results."""
+
     doi: str
     screening_decision: bool = Field(validation_alias="decision")
     screening_reasoning: str = Field(validation_alias="reasoning")
@@ -59,6 +65,8 @@ class ScreeningResponse(BaseModel):
 
 
 class PriorityResponse(BaseModel):
+    """Model for LLM response containing article priority assessment."""
+
     doi: str
     priority_decision: str = Field(validation_alias="decision")
     priority_reasoning: str = Field(validation_alias="reasoning")
@@ -100,6 +108,16 @@ def get_common_variations(expected_values: list):
 
 
 def pprint(model: BaseModel, exclude_none: bool = True) -> str:
+    """
+    Pretty print a Pydantic model, list, or dict of models as JSON.
+
+    Args:
+        model (BaseModel): The Pydantic model, list, or dict to print.
+        exclude_none (bool): Whether to exclude None values from output.
+
+    Returns:
+        str: JSON string representation of the model.
+    """
     if isinstance(model, BaseModel):
         return model.model_dump_json(indent=2, exclude_none=exclude_none)
     elif isinstance(model, list):
