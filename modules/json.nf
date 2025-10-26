@@ -79,8 +79,7 @@ process COLLECT_OUTPUTS {
 
     script:
     """
-    # paste the JSON files into a single JSON array
-    jq -s '.' articles_*.json > validated_articles.json
+    jq -s 'add' articles_*.json > validated_articles.json
     """
 
 }
