@@ -43,3 +43,43 @@ def filterAndBatch(channel, batch_size, key, value) {
         no_match: batchFlattened(branches.no_match, batch_size)
     ]
 }
+
+process VALIDATE {
+
+    container "community.wave.seqera.io/library/pip_pydantic:1317fe30f73a8cef"
+
+    input:
+    path ARTICLES_JSON
+    val STAGE
+    val OUTPUT_NAME
+
+    output:
+    path "${OUTPUT_NAME}.json"
+
+    script:
+    """
+    json_validate_articles.py \
+--articles_json ${ARTICLES_JSON} \
+--stage ${STAGE} \
+--out ${OUTPUT_NAME}.json
+    """
+
+}
+
+process COLLECT_OUTPUTS {
+
+    container "community.wave.seqera.io/library/jq:1.8.1--c46af957d69e6f58"
+    publishDir params.articles_json.outdir, mode: 'copy'
+
+    input:
+    path "articles_*.json"
+
+    output:
+    path "validated_articles.json"
+
+    script:
+    """
+    jq -s 'add' articles_*.json > validated_articles.json
+    """
+
+}

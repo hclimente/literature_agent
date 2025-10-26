@@ -7,7 +7,7 @@ import pathlib
 from common.llm import llm_query
 from common.models import ArticleList, pprint
 from common.parsers import (
-    add_articles_json_argument,
+    add_input_articles_json_argument,
     add_debug_argument,
     add_llm_arguments,
 )
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Process articles based on the provided prompt."
     )
-    parser = add_articles_json_argument(parser)
+    parser = add_input_articles_json_argument(parser)
     parser = add_debug_argument(parser)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -118,11 +118,10 @@ if __name__ == "__main__":
     except AttributeError:
         research_interests_path = None
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-        logging.debug("Debug mode enabled.")
-    else:
-        logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format="%(message)s",
+    )
 
     llm_process_articles(
         args.command,

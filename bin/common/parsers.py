@@ -1,7 +1,7 @@
 import argparse
 
 
-def add_articles_json_argument(parser: argparse.ArgumentParser):
+def add_input_articles_json_argument(parser: argparse.ArgumentParser):
     """
     Add articles JSON argument to an argument parser.
 
@@ -16,6 +16,26 @@ def add_articles_json_argument(parser: argparse.ArgumentParser):
         type=str,
         required=True,
         help="The path to the JSON file containing the articles to process.",
+    )
+
+    return parser
+
+
+def add_output_argument(parser: argparse.ArgumentParser):
+    """
+    Add output file argument to an argument parser.
+
+    Args:
+        parser (argparse.ArgumentParser): The argument parser to add arguments to.
+
+    Returns:
+        argparse.ArgumentParser: The modified parser.
+    """
+    parser.add_argument(
+        "--out",
+        type=str,
+        required=True,
+        help="The path to the output file.",
     )
 
     return parser

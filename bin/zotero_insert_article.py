@@ -11,7 +11,7 @@ from common.models import (
     ArticleList,
 )
 from common.parsers import (
-    add_articles_json_argument,
+    add_input_articles_json_argument,
     add_debug_argument,
 )
 
@@ -218,7 +218,7 @@ if __name__ == "__main__":
         description="Insert articles from a TSV file into a DuckDB database."
     )
 
-    parser = add_articles_json_argument(parser)
+    parser = add_input_articles_json_argument(parser)
     parser = add_debug_argument(parser)
     parser.add_argument(
         "--zotero_user_id",
@@ -241,11 +241,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-        logging.debug("Debug mode enabled.")
-    else:
-        logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format="%(message)s",
+    )
 
     insert_article(
         args.articles_json,

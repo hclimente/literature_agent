@@ -6,7 +6,7 @@ import logging
 import duckdb
 
 from common.parsers import (
-    add_articles_json_argument,
+    add_input_articles_json_argument,
     add_duckdb_arguments,
 )
 
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         description="Remove articles that have already been processed from a TSV file using a DuckDB database."
     )
 
-    parser = add_articles_json_argument(parser)
+    parser = add_input_articles_json_argument(parser)
     parser = add_duckdb_arguments(parser)
     parser.add_argument(
         "--output_json",

@@ -61,10 +61,9 @@ jobs:
         fi
 
         nextflow run main.nf \
-          --journal_list config/journals.tsv \
-          --research_interests config/research_interests.md \
-          --backend_from tsv \
-          --backend_to zotero \
+          -params-file config/pipeline_parameters.yaml \
+          --backend.from tsv \
+          --backend.to zotero \
           -ansi-log false \
           $DEBUG_FLAG
 
