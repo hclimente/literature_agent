@@ -11,7 +11,10 @@ from common.models import (
     Author,
     pprint,
 )
-from common.parsers import add_articles_json_argument
+from common.parsers import (
+    add_input_articles_json_argument,
+    add_debug_argument,
+)
 
 
 def get_author_list(author_data: list) -> list[Author]:
@@ -73,13 +76,17 @@ def fetch_metadata(articles_json: str) -> dict:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
     parser = argparse.ArgumentParser(
         description="Fetch metadata for articles using Crossref API."
     )
-    parser = add_articles_json_argument(parser)
+    parser = add_input_articles_json_argument(parser)
+    parser = add_debug_argument(parser)
 
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format="%(message)s",
+    )
 
     fetch_metadata(args.articles_json)

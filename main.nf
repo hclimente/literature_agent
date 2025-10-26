@@ -16,11 +16,10 @@ workflow {
         FROM_TABULAR(file(params.journals_tsv))
         articles_to_process = FROM_TABULAR.out
     } else if (params.backend_from == "articles_json") {
-        FROM_JSON(file(params.journals_tsv))
+        FROM_JSON(file(params.from_json.input))
         articles_to_process = FROM_JSON.out
-
     } else {
-        error "Unsupported backend: ${params.backend}. Supported backends are 'duckdb' and 'tsv'."
+        error "Unsupported backend: ${params.backend}. Supported backends are 'duckdb', 'journals_tsv', and 'articles_json'."
     }
 
     PROCESS_ARTICLES(articles_to_process)
@@ -31,7 +30,9 @@ workflow {
         TO_ZOTERO(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 1000))
     } else if (params.backend_to == "articles_json") {
         TO_JSON(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 1000))
+
+        TO_JSON.out.view()
     } else {
-        error "Unsupported backend: ${params.backend}. Supported backends are 'duckdb' and 'zotero'."
+        error "Unsupported backend: ${params.backend}. Supported backends are 'duckdb', 'zotero', and 'articles_json'."
     }
 }

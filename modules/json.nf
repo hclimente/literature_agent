@@ -43,3 +43,25 @@ def filterAndBatch(channel, batch_size, key, value) {
         no_match: batchFlattened(branches.no_match, batch_size)
     ]
 }
+
+process VALIDATE {
+
+    container "community.wave.seqera.io/library/pip_pydantic:1317fe30f73a8cef"
+
+    input:
+    path ARTICLES_JSON
+    val STAGE
+    val OUTPUT_NAME
+
+    output:
+    path "${OUTPUT_NAME}.json"
+
+    script:
+    """
+    json_validate_articles.py \
+--articles_json ${ARTICLES_JSON} \
+--stage ${STAGE} \
+--out ${OUTPUT_NAME}.json
+    """
+
+}

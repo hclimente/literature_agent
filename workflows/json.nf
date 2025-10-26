@@ -1,39 +1,26 @@
-include { batchArticles; filterAndBatch } from '../modules/json'
+include { batchArticles; filterAndBatch; VALIDATE } from '../modules/json'
 
 workflow FROM_JSON {
 
     take:
-        journals_tsv
+        articles_json
 
     main:
-        global_cutoff_date = new Date(System.currentTimeMillis() - 15 * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
-        println "Global cutoff date set to: ${global_cutoff_date}"
-
-        journals = channel.fromPath(journals_tsv)
-            .splitCsv(header: true, sep: '\t')
-            .map { row ->
-                row['last_checked'] = global_cutoff_date
-                return row
-            }
-
-        FETCH_ARTICLES(journals, 50)
-
-        articles_to_process = batchArticles(FETCH_ARTICLES.out, params.batch_size)
-
+        VALIDATE(articles_json, "import", "validated_articles")
     emit:
-        articles_to_process
+        VALIDATE.out
 
 }
 
 workflow TO_JSON {
 
     take:
-        prioritized_articles
+        articles_json
 
     main:
-        articles_batched = batchArticles(prioritized_articles, params.batch_size)
+        VALIDATE(articles_json, "export", "prioritized_articles")
 
     emit:
-        articles_batched
+        VALIDATE.out
 
 }
