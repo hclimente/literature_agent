@@ -1,6 +1,4 @@
-include { FETCH_ARTICLES } from '../modules/rss'
-
-include { batchArticles; filterAndBatch } from '../lib/batch_utils'
+include { batchArticles; filterAndBatch } from '../modules/json'
 
 workflow FROM_JSON {
 

@@ -3,7 +3,7 @@ include { EXTRACT_METADATA as EXTRACT_METADATA_RETRY } from '../modules/agentic'
 include { SCREEN as SCREEN_RETRY } from '../modules/agentic'
 include { PRIORITIZE as PRIORITIZE_RETRY } from '../modules/agentic'
 
-include { batchArticles; filterAndBatch } from '../lib/batch_utils'
+include { batchArticles; filterAndBatch } from '../modules/json'
 
 workflow PROCESS_ARTICLES {
 

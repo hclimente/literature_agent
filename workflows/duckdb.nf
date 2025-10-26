@@ -1,7 +1,7 @@
 include { FETCH_ARTICLES } from '../modules/rss'
 include { CREATE_ARTICLES_DB; FETCH_JOURNALS; REMOVE_PROCESSED; SAVE; UPDATE_TIMESTAMPS } from '../modules/db'
 
-include { batchArticles; filterAndBatch } from '../lib/batch_utils'
+include { batchArticles; filterAndBatch } from '../modules/json'
 
 workflow FROM_DUCKDB {
 
