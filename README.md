@@ -30,7 +30,7 @@ Adjust the journals you want to monitor and your research interests. See example
 
 ```bash
 nextflow run hclimente/nf-papers-please \
-    --journal_list <your_journals.tsv> \
+    --journals_tsv <your_journals.tsv> \
     --research_interests <your_interests.md>
 ```
 

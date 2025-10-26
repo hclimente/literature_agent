@@ -1,9 +1,9 @@
-include { EXTRACT_METADATA; SCREEN; PRIORITIZE } from '../modules/agentic/main'
-include { EXTRACT_METADATA as EXTRACT_METADATA_RETRY } from '../modules/agentic/main'
-include { SCREEN as SCREEN_RETRY } from '../modules/agentic/main'
-include { PRIORITIZE as PRIORITIZE_RETRY } from '../modules/agentic/main'
+include { EXTRACT_METADATA; SCREEN; PRIORITIZE } from '../modules/agentic'
+include { EXTRACT_METADATA as EXTRACT_METADATA_RETRY } from '../modules/agentic'
+include { SCREEN as SCREEN_RETRY } from '../modules/agentic'
+include { PRIORITIZE as PRIORITIZE_RETRY } from '../modules/agentic'
 
-include { batchArticles; filterAndBatch } from '../lib/batch_utils.nf'
+include { batchArticles; filterAndBatch } from '../lib/batch_utils'
 
 workflow PROCESS_ARTICLES {
 

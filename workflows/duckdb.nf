@@ -1,12 +1,12 @@
-include { FETCH_ARTICLES } from '../modules/rss/main'
-include { CREATE_ARTICLES_DB; FETCH_JOURNALS; REMOVE_PROCESSED; SAVE; UPDATE_TIMESTAMPS } from '../modules/db/main'
+include { FETCH_ARTICLES } from '../modules/rss'
+include { CREATE_ARTICLES_DB; FETCH_JOURNALS; REMOVE_PROCESSED; SAVE; UPDATE_TIMESTAMPS } from '../modules/db'
 
-include { batchArticles; filterAndBatch } from '../lib/batch_utils.nf'
+include { batchArticles; filterAndBatch } from '../lib/batch_utils'
 
 workflow FROM_DUCKDB {
 
     take:
-        journal_list
+        journals_tsv
 
     main:
         database_path = file(params.database_path)
@@ -19,7 +19,7 @@ workflow FROM_DUCKDB {
 
             db_filename = database_path.name
             db_parent_dir = database_path.parent
-            CREATE_ARTICLES_DB(file(params.journal_list), db_filename, db_parent_dir, global_cutoff_date)
+            CREATE_ARTICLES_DB(file(params.journals_tsv), db_filename, db_parent_dir, global_cutoff_date)
             database_path = CREATE_ARTICLES_DB.out
         }
 

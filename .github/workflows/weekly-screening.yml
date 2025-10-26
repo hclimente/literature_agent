@@ -61,7 +61,7 @@ jobs:
         fi
 
         nextflow run main.nf \
-          --journal_list config/journals.tsv \
+          --journals_tsv config/journals.tsv \
           --research_interests config/research_interests.md \
           --backend_from tsv \
           --backend_to zotero \

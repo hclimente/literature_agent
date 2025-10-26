@@ -1,4 +1,4 @@
-include { EXTRACT_MORE_METADATA; SAVE } from '../modules/zotero/main'
+include { EXTRACT_MORE_METADATA; SAVE } from '../modules/zotero'
 
 workflow TO_ZOTERO {
 

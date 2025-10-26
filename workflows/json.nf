@@ -2,7 +2,7 @@ include { FETCH_ARTICLES } from '../modules/rss'
 
 include { batchArticles; filterAndBatch } from '../lib/batch_utils'
 
-workflow FROM_TABULAR {
+workflow FROM_JSON {
 
     take:
         journals_tsv
@@ -24,5 +24,18 @@ workflow FROM_TABULAR {
 
     emit:
         articles_to_process
+
+}
+
+workflow TO_JSON {
+
+    take:
+        prioritized_articles
+
+    main:
+        articles_batched = batchArticles(prioritized_articles, params.batch_size)
+
+    emit:
+        articles_batched
 
 }
