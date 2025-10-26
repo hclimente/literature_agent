@@ -11,6 +11,7 @@ process EXTRACT_METADATA {
     path SYSTEM_PROMPT
     val MODEL
     val ALLOW_QC_ERRORS
+    val DEBUG
 
     output:
     path "metadata_pass.json", emit: pass, optional: true
@@ -20,6 +21,7 @@ process EXTRACT_METADATA {
     """
     llm_process_articles.py \
 --articles_json ${ARTICLES_JSON} \
+${DEBUG ? '--debug' : ''} \
 metadata \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --model ${MODEL} \
@@ -42,6 +44,7 @@ process SCREEN {
     path RESEARCH_INTERESTS_PATH
     val MODEL
     val ALLOW_QC_ERRORS
+    val DEBUG
 
     output:
     path "screening_pass.json", emit: pass, optional: true
@@ -51,6 +54,7 @@ process SCREEN {
     """
     llm_process_articles.py \
 --articles_json ${ARTICLES_JSON} \
+${DEBUG ? '--debug' : ''} \
 screening \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --research_interests_path ${RESEARCH_INTERESTS_PATH} \
@@ -73,6 +77,7 @@ process PRIORITIZE {
     path RESEARCH_INTERESTS_PATH
     val MODEL
     val ALLOW_QC_ERRORS
+    val DEBUG
 
     output:
     path "priority_pass.json", emit: pass, optional: true
@@ -82,6 +87,7 @@ process PRIORITIZE {
     """
     llm_process_articles.py \
 --articles_json ${ARTICLES_JSON} \
+${DEBUG ? '--debug' : ''} \
 priority \
 --system_prompt_path ${SYSTEM_PROMPT} \
 --research_interests_path ${RESEARCH_INTERESTS_PATH} \

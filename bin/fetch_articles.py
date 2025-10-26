@@ -95,8 +95,9 @@ def fetch_rss_feed(
         article_data = {
             "journal_name": journal_name,
             "url": item.link,
-            "date": item_date_naive.date().isoformat(),
             "raw_contents": str(item),
+            "date": item_date_naive.date().isoformat(),
+            "access_date": time.strftime("%Y-%m-%d"),
         }
         article = Article.model_validate(article_data)
         articles.append(article)

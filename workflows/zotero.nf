@@ -1,4 +1,4 @@
-include { SAVE } from '../modules/zotero/main'
+include { EXTRACT_MORE_METADATA; SAVE } from '../modules/zotero/main'
 
 workflow TO_ZOTERO {
 
@@ -6,8 +6,9 @@ workflow TO_ZOTERO {
         articles_json
 
     main:
+        EXTRACT_MORE_METADATA(articles_json)
         SAVE(
-            articles_json,
+            EXTRACT_MORE_METADATA.out,
             params.zotero.user_id,
             params.zotero.collection_id,
             params.zotero.library_type

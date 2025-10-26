@@ -15,7 +15,8 @@ workflow PROCESS_ARTICLES {
             articles_json,
             file(params.metadata_extraction.system_prompt),
             params.metadata_extraction.model,
-            true
+            true,
+            params.debug
         )
 
         failed_metadata = batchArticles(EXTRACT_METADATA.out.fail, params.batch_size)
@@ -23,7 +24,8 @@ workflow PROCESS_ARTICLES {
             failed_metadata,
             file(params.metadata_extraction.system_prompt),
             params.metadata_extraction.model,
-            false
+            false,
+            params.debug
         )
 
         metadata_articles = EXTRACT_METADATA.out.pass
@@ -34,7 +36,8 @@ workflow PROCESS_ARTICLES {
             file(params.screening.system_prompt),
             file(params.research_interests),
             params.screening.model,
-            true
+            true,
+            params.debug
         )
 
         SCREEN_RETRY(
@@ -42,7 +45,8 @@ workflow PROCESS_ARTICLES {
             file(params.screening.system_prompt),
             file(params.research_interests),
             params.screening.model,
-            false
+            false,
+            params.debug
         )
 
         screened_articles = SCREEN.out.pass
@@ -53,7 +57,8 @@ workflow PROCESS_ARTICLES {
             file(params.prioritization.system_prompt),
             file(params.research_interests),
             params.prioritization.model,
-            true
+            true,
+            params.debug
         )
 
         PRIORITIZE_RETRY(
@@ -61,7 +66,8 @@ workflow PROCESS_ARTICLES {
             file(params.prioritization.system_prompt),
             file(params.research_interests),
             params.prioritization.model,
-            false
+            false,
+            params.debug
         )
 
         prioritized_articles = PRIORITIZE.out.pass

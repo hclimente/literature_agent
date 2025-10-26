@@ -8,6 +8,7 @@ from common.llm import llm_query
 from common.models import ArticleList, pprint
 from common.parsers import (
     add_articles_json_argument,
+    add_debug_argument,
     add_llm_arguments,
 )
 from common.validation import (
@@ -27,6 +28,7 @@ def llm_process_articles(
     research_interests_path: str,
     model: str,
     allow_qc_errors: bool,
+    debug: bool = False,
 ):
     """
     Process articles using LLM based on the provided stage and prompt.
@@ -38,14 +40,17 @@ def llm_process_articles(
         research_interests_path (str): The path to a text file containing the user's research interests.
         model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
         allow_qc_errors (bool): Whether to allow QC errors without failing the process.
+        debug (bool): Whether to enable debug mode.
     """
     logging.info("-" * 20)
     logging.info("llm_process_articles called with the following arguments:")
+    logging.info(f"stage                   : {stage}")
     logging.info(f"articles_json           : {articles_json}")
     logging.info(f"system_prompt_path      : {system_prompt_path}")
     logging.info(f"research_interests_path : {research_interests_path}")
     logging.info(f"model                   : {model}")
     logging.info(f"allow_qc_errors         : {allow_qc_errors}")
+    logging.info(f"debug                   : {debug}")
     logging.info("-" * 20)
 
     json_string = pathlib.Path(articles_json).read_text()
@@ -61,6 +66,11 @@ def llm_process_articles(
         research_interests_path=research_interests_path,
         llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
     )
+
+    if debug:
+        debug_path = f"debug_{stage}_response.txt"
+        pathlib.Path(debug_path).write_text(response_text)
+        logging.debug(f"Wrote LLM response to {debug_path}.")
 
     merge_key = "url" if stage == "metadata" else "doi"
     response_pass = validate_llm_response(
@@ -82,12 +92,11 @@ def llm_process_articles(
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-
     parser = argparse.ArgumentParser(
         description="Process articles based on the provided prompt."
     )
     parser = add_articles_json_argument(parser)
+    parser = add_debug_argument(parser)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     metadata_parser = subparsers.add_parser("metadata")
@@ -108,6 +117,12 @@ if __name__ == "__main__":
         research_interests_path = args.research_interests_path
     except AttributeError:
         research_interests_path = None
+
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+        logging.debug("Debug mode enabled.")
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     llm_process_articles(
         args.command,
