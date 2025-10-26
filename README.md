@@ -34,10 +34,38 @@ nextflow run hclimente/nf-papers-please \
     --research_interests <your_interests.md>
 ```
 
+The workflow will fetch the latest articles from the specified journals, screen them based on your research interests, and output a prioritized list of articles in `results/prioritized_articles.json`. It should look like this:
+
+```json
+[
+  {
+    "title": "Sample Article Title 1",
+    "abstract": "...",
+    "journal": "Sample Journal",
+    "publication_date": "2025-10-23",
+    "priority_decision": "high",
+    "url": "https://doi.org/xx.xxxx/xxxxx"
+  },
+    {
+    "title": "Sample Article Title 2",
+    "abstract": "...",
+    "journal": "Sample Journal",
+    "publication_date": "2025-10-19",
+    "priority_decision": "low",
+    "url": "https://doi.org/xx.xxxx/xxxxx"
+  },
+  ...
+]
+```
+
 # Automated weekly runs on Github Actions
 
+This workflow can be set up to run automatically on a weekly basis using GitHub Actions. The workflow will check for new articles based on your specified research interests and journals, process them, and save the results to your Zotero library.
+
+To set up the automated weekly runs, follow these steps:
+
 1. Click the "Fork" button at the top right of this page to create your own copy of the repository.
-1. Modify the first lines of `config/pipeline_parameters.yaml` to add your configuration as follows:
+1. Modify the first lines of `config/config.yaml` to add your configuration as follows:
 
     ```yaml
     research_interests: "<your_interests.md>"
