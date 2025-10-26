@@ -6,7 +6,7 @@ import logging
 import duckdb
 
 from common.parsers import (
-    add_articles_json_argument,
+    add_input_articles_json_argument,
     add_duckdb_arguments,
 )
 
@@ -30,24 +30,24 @@ def insert_article(
     logging.info(f"Loaded {len(articles)} articles from {articles_json}.")
 
     for a in articles:
-        a["metadata_doi"] = a["metadata_doi"] if a["metadata_doi"] != "NULL" else None
+        a["doi"] = a["doi"] if a["doi"] != "NULL" else None
 
-        logging.info(f"Inserting article: {a['metadata_title'][:50]}...")
+        logging.info(f"Inserting article: {a['title'][:50]}...")
 
         with duckdb.connect(db_path) as con:
             try:
                 con.execute(
                     """
-                    INSERT INTO articles (title, summary, link, journal_name, date, doi, screening_decision, screening_reasoning, priority, priority_reasoning)
+                    INSERT INTO articles (title, summary, url, journal_name, date, doi, screening_decision, screening_reasoning, priority, priority_reasoning)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        a["metadata_title"],
-                        a["metadata_summary"],
-                        a["link"],
+                        a["title"],
+                        a["summary"],
+                        a["url"],
                         a["journal_name"],
                         a["date"],
-                        a["metadata_doi"],
+                        a["doi"],
                         a.get("screening_decision", None),
                         a.get("screening_reasoning", None),
                         a.get("priority_decision", None),
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         description="Insert articles from a TSV file into a DuckDB database."
     )
 
-    parser = add_articles_json_argument(parser)
+    parser = add_input_articles_json_argument(parser)
     parser = add_duckdb_arguments(parser)
 
     args = parser.parse_args()
