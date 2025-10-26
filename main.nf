@@ -30,9 +30,8 @@ workflow {
         TO_ZOTERO(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 1000))
     } else if (params.backend_to == "articles_json") {
         TO_JSON(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 1000))
-
-        TO_JSON.out.view()
     } else {
         error "Unsupported backend: ${params.backend}. Supported backends are 'duckdb', 'zotero', and 'articles_json'."
     }
+
 }

@@ -1,4 +1,4 @@
-include { batchArticles; filterAndBatch; VALIDATE } from '../modules/json'
+include { batchArticles; filterAndBatch; COLLECT_OUTPUTS; VALIDATE } from '../modules/json'
 
 workflow FROM_JSON {
 
@@ -19,6 +19,7 @@ workflow TO_JSON {
 
     main:
         VALIDATE(articles_json, "export", "prioritized_articles")
+        COLLECT_OUTPUTS(VALIDATE.out.collect())
 
     emit:
         VALIDATE.out

@@ -65,3 +65,22 @@ process VALIDATE {
     """
 
 }
+
+process COLLECT_OUTPUTS {
+
+    container "community.wave.seqera.io/library/jq:1.8.1--c46af957d69e6f58"
+    publishDir params.outdir, mode: 'copy'
+
+    input:
+    path "articles_*.json"
+
+    output:
+    path "validated_articles.json"
+
+    script:
+    """
+    # paste the JSON files into a single JSON array
+    jq -s '.' articles_*.json > validated_articles.json
+    """
+
+}
