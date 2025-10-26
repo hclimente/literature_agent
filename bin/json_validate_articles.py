@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 from datetime import date
+import json
 import logging
 import pathlib
 
@@ -31,14 +32,22 @@ def validate_articles_json(
 
     logging.info(f"⌛ Began validating articles JSON to {stage}...")
 
+    # Pydantic validation
     json_string = pathlib.Path(articles_json).read_text()
-    articles = ArticleList.validate_json(json_string)
+    raw_articles = json.loads(json_string)
+
+    # Set access_date to today for all articles
+    for article in raw_articles:
+        article["access_date"] = date.today().isoformat()
+
+    articles = ArticleList.validate_python(raw_articles)
 
     # Keep only required fields based on the stage
     core_fields = [
         "url",
         "journal_name",
         "date",
+        "access_date",
         "raw_contents",
     ]
     if stage == "import":
@@ -61,10 +70,6 @@ def validate_articles_json(
             if f not in required_fields:
                 setattr(article, f, None)
 
-        # Always set access_date to today
-        article.access_date = date.today().isoformat()
-
-    # Save the validated articles to the output file
     with open(f"{out}", "w") as f:
         f.write(pprint(articles))
 
