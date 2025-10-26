@@ -1,0 +1,48 @@
+# ===========================
+# User Configuration
+# ===========================
+# These are the main parameters you'll want to customize
+research_interests: "${projectDir}/config/research_interests.md"
+journals_tsv: "${projectDir}/config/journals.tsv"
+
+zotero:
+    user_id: "1508765"
+    collection_id: "U3T98NSQ"
+    library_type: "user"
+
+# ===========================
+# Backend Configuration
+# ===========================
+# options: "articles_json", "duckdb", "journals_tsv"
+# backend_from: "journals_tsv"
+# options: "articles_json", "duckdb", "zotero"
+# backend_to: "articles_json"
+
+# backend-specific parameters
+# duckdb:
+#     database_path: "papers_please.duckdb"
+
+# articles_json:
+#     input: "articles.json"
+#     outdir: "./results"
+
+# ===========================
+# LLM Models Configuration
+# ===========================
+# batch_size: 10
+# metadata_extraction:
+#     model: "gemini-2.5-flash-lite"
+#     system_prompt: "${projectDir}/prompts/metadata_extraction.md"
+
+# screening:
+#     model: "gemini-2.5-flash-lite"
+#     system_prompt: "${projectDir}/prompts/screening.md"
+
+# prioritization:
+#     model: "gemini-2.5-flash-lite"
+#     system_prompt: "${projectDir}/prompts/prioritization.md"
+
+# ===========================
+# Others
+# ===========================
+# debug: false

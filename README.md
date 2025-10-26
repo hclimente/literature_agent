@@ -37,14 +37,16 @@ nextflow run hclimente/nf-papers-please \
 # Automated weekly runs on Github Actions
 
 1. Click the "Fork" button at the top right of this page to create your own copy of the repository.
-1. Modify this part of [`nextflow.config`](nextflow.config) to point to your Zotero library:
+1. Modify the first lines of `config/pipeline_parameters.yaml` to add your configuration as follows:
 
-    ```groovy
-        zotero {
-            user_id       = "<YOUR ZOTERO USER ID>"
-            collection_id = "<THE COLLECTION ID WHERE YOU WANT TO SAVE THE ARTICLES>"
-            library_type  = "user"
-        }
+    ```yaml
+    research_interests: "<your_interests.md>"
+    journals_tsv: "<your_journals.tsv>"
+
+    zotero:
+        user_id: "<your_user_id>"
+        collection_id: "<your_collection_id>"
+        library_type: "user" # or "group"
     ```
 
 1. Add [the required secrets](#pre-requisites) to your forked repository. See [here](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets#creating-secrets-for-a-repository) for more information.
