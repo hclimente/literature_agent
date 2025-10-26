@@ -10,20 +10,42 @@ from pydantic import (
 )
 
 
+class Author(BaseModel):
+    """Model representing an author of a scientific article."""
+
+    first_name: str
+    last_name: str
+
+
 class Article(BaseModel):
     """Model representing a scientific article with metadata and processing results."""
 
+    # Core metadata fields
     title: str | None = None
+    authors: list[Author] | None = []
     summary: str | None = None
     doi: str | None = None
-    journal_name: str
-    date: date
     url: HttpUrl
-    # authors: list[Author]
+
+    # Publication information
+    journal_name: str
+    journal_short_name: str | None = None
+    volume: int | None = None
+    issue: int | None = None
+    date: date
+
+    # Other metadata
+    language: str | None = None
+
+    # LLM results
     screening_decision: bool | None = None
     screening_reasoning: str | None = None
+
     priority_decision: str | None = None
     priority_reasoning: str | None = None
+
+    # Raw and integration data
+    access_date: date
     raw_contents: str
     zotero_key: str | None = None
 

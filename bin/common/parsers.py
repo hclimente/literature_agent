@@ -21,6 +21,25 @@ def add_articles_json_argument(parser: argparse.ArgumentParser):
     return parser
 
 
+def add_debug_argument(parser: argparse.ArgumentParser):
+    """
+    Add debug argument to an argument parser.
+
+    Args:
+        parser (argparse.ArgumentParser): The argument parser to add arguments to.
+
+    Returns:
+        argparse.ArgumentParser: The modified parser.
+    """
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode with verbose logging.",
+    )
+
+    return parser
+
+
 def add_duckdb_arguments(parser: argparse.ArgumentParser):
     """
     Add DuckDB database path argument to an argument parser.

@@ -1,3 +1,22 @@
+process EXTRACT_MORE_METADATA {
+
+    container 'community.wave.seqera.io/library/pip_habanero_pydantic:3882895f50c53509'
+
+    input:
+    path ARTICLES_JSON
+
+    output:
+    path 'articles_with_extra_metadata.json'
+
+    script:
+    """
+    crossref_annotate_doi.py \
+--articles_json ${ARTICLES_JSON}
+    """
+
+}
+
+
 process SAVE {
 
     container 'community.wave.seqera.io/library/pip_pydantic_pyzotero:ba16c1f9d97e42dc'

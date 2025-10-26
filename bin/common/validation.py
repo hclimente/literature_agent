@@ -9,13 +9,12 @@ from .models import (
 )
 
 
-def validate_json_response(response_text: str, stage: str) -> dict:
+def validate_json_response(response_text: str) -> dict:
     """
     Validate that the response is valid JSON.
 
     Args:
         response_text (str): The AI response text.
-        stage (str): The processing stage (e.g., "metadata", "screening", "priority").
 
     Returns:
         dict: The parsed JSON object.
@@ -151,7 +150,7 @@ def validate_llm_response(
         dict: Articles that passed validation, keyed by merge_key.
     """
     logging.info(f"Began validating {stage} response...")
-    response = validate_json_response(response_text, stage)
+    response = validate_json_response(response_text)
 
     response_pass = {}
 

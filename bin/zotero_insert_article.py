@@ -12,6 +12,7 @@ from common.models import (
 )
 from common.parsers import (
     add_articles_json_argument,
+    add_debug_argument,
 )
 
 
@@ -41,14 +42,14 @@ def create_zotero_article(
     zotero_article["url"] = str(item.url)
 
     # Optional fields - populate if available
-    # zotero_article['volume'] = metadata["volume"]
-    # zotero_article['issue'] = metadata["issue"]
+    zotero_article["volume"] = item.volume
+    zotero_article["issue"] = item.issue
     # zotero_article['pages'] = metadata["pages"]
-    # zotero_article['journalAbbreviation'] = metadata["journal_abbreviation"]
-    # zotero_article['language'] = metadata["language"]
+    zotero_article["journalAbbreviation"] = item.journal_short_name
+    zotero_article["language"] = item.language
     # zotero_article['ISSN'] = metadata["issn"]
     # zotero_article['shortTitle'] = metadata["short_title"]
-    # zotero_article['accessDate'] = metadata["access_date"]
+    zotero_article["accessDate"] = item.access_date.isoformat()
     # zotero_article['series'] = metadata["series"]
     # zotero_article['seriesTitle'] = metadata["series_title"]
     # zotero_article['seriesText'] = metadata["series_text"]
@@ -59,20 +60,15 @@ def create_zotero_article(
     # zotero_article['rights'] = metadata["rights"]
 
     # Add creators/authors if available
-    # zotero_article["creators"] = []
-    # for author in item.authors:
-    #     if "firstName" in author and "lastName" in author:
-    #         zotero_article["creators"].append(
-    #             {
-    #                 "creatorType": "author",
-    #                 "firstName": author["firstName"],
-    #                 "lastName": author["lastName"],
-    #             }
-    #         )
-    #     elif "name" in author:
-    #         zotero_article["creators"].append(
-    #             {"creatorType": "author", "name": author["name"]}
-    #         )
+    zotero_article["creators"] = []
+    for author in item.authors:
+        zotero_article["creators"].append(
+            {
+                "creatorType": "author",
+                "firstName": author.first_name,
+                "lastName": author.last_name,
+            }
+        )
 
     # Add tags based on screening/priority
     zotero_article["tags"] = []
@@ -203,7 +199,7 @@ def insert_article(
     for i, item in enumerate(articles):
         logging.info(f"Processing notes for '{item.title[:50]}...'")
 
-        setattr(item, "zotero_key", zotero_keys[item.doi])
+        item.zotero_key = zotero_keys[item.doi]
         note = create_zotero_note(item, zot)
         notes_to_insert.append(note)
 
@@ -218,13 +214,12 @@ def insert_article(
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-
     parser = argparse.ArgumentParser(
         description="Insert articles from a TSV file into a DuckDB database."
     )
 
     parser = add_articles_json_argument(parser)
+    parser = add_debug_argument(parser)
     parser.add_argument(
         "--zotero_user_id",
         type=str,
@@ -245,6 +240,12 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+        logging.debug("Debug mode enabled.")
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     insert_article(
         args.articles_json,
