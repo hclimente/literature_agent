@@ -18,6 +18,17 @@ from common.parsers import (
 def create_zotero_article(
     item: Article, zotero_collection_id, zot: zotero.Zotero
 ) -> zotero.Item:
+    """
+    Create a Zotero journal article item from an Article object.
+
+    Args:
+        item (Article): The article to convert.
+        zotero_collection_id: The Zotero collection ID to add the article to.
+        zot (zotero.Zotero): The Zotero client instance.
+
+    Returns:
+        zotero.Item: The created Zotero article item.
+    """
     # Get a template for a journal article
     zotero_article = zot.item_template("journalArticle")
 
@@ -98,6 +109,7 @@ def validate_response(items, response: dict) -> bool:
     Validate the response from Zotero API.
 
     Args:
+        items: The items that were attempted to be inserted.
         response (dict): The response dictionary from Zotero API.
 
     Returns:
@@ -115,6 +127,17 @@ def validate_response(items, response: dict) -> bool:
 
 
 def insert_batch(zot: zotero.Zotero, items: list, return_keys: bool = True) -> list:
+    """
+    Insert a batch of items into Zotero.
+
+    Args:
+        zot (zotero.Zotero): The Zotero client instance.
+        items (list): List of items to insert.
+        return_keys (bool): Whether to return the created item keys.
+
+    Returns:
+        list: Dictionary mapping DOIs to Zotero keys if return_keys=True, else empty dict.
+    """
     resp = zot.create_items(items)
 
     logging.debug(f"Zotero response: {resp}")
@@ -136,12 +159,13 @@ def insert_article(
     zotero_collection_id: str,
 ) -> None:
     """
-    Insert articles from a JSON file into a DuckDB database.
+    Insert articles from a JSON file into Zotero.
 
     Args:
         articles_json (str): Path to the JSON file containing articles.
         zotero_user_id (str): Zotero user ID.
-        zotero_library_type (str): Zotero library type ('user' or 'group')
+        zotero_library_type (str): Zotero library type ('user' or 'group').
+        zotero_collection_id (str): Zotero collection ID to add articles to.
 
     Returns:
         None
