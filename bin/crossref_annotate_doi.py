@@ -98,7 +98,7 @@ if __name__ == "__main__":
     )
     parser = add_input_articles_json_argument(parser)
     parser = add_debug_argument(parser)
-    parser = parser.add_argument(
+    parser.add_argument(
         "--error_strategy",
         type=str,
         choices=["exclude", "include"],
