@@ -22,6 +22,10 @@ Your **only** criterion is whether the individual articles' main topic is a dire
   ...
 ]
 
+**Important Notes:**
+- The output must be a valid JSON object. When multiple articles are provided, output a JSON array of objects.
+- Use double quotes for all JSON keys and string values.
+
 # Example 1: Perfect Match (Review in Core Area)
 **Article Title:** "A Review of Network-Based Methods for Drug Target Identification in Oncology"
 **Correct Output:**

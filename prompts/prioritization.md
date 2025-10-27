@@ -25,6 +25,10 @@ You will assign priority based on how many of the user's interest dimensions the
   ...
 ]
 
+**Important Notes:**
+- The output must be a valid JSON object. When multiple articles are provided, output a JSON array of objects.
+- Use double quotes for all JSON keys and string values.
+
 # Example 1: High Priority
 **Article Title:** "A Review of Network-Based Methods for Drug Target Identification in Oncology"
 **Correct Output:**
