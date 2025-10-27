@@ -27,7 +27,7 @@ workflow {
     if (params.backend.to == "duckdb") {
         TO_DUCKDB(PROCESS_ARTICLES.out.all_articles)
     } else if (params.backend.to == "zotero") {
-        TO_ZOTERO(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 1000))
+        TO_ZOTERO(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 10))
     } else if (params.backend.to == "articles_json") {
         TO_JSON(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 1000))
     } else {
