@@ -32,6 +32,7 @@ process FETCH_JOURNALS {
     output:
     path "journals.tsv"
 
+    script:
     """
     duckdb_extract_fields.py \
 --db_path ${DB_PATH} \
@@ -53,6 +54,7 @@ process REMOVE_PROCESSED {
     output:
     path "unprocessed_articles.json", optional: true
 
+    script:
     """
     duckdb_remove_processed.py \
 --db_path ${DB_PATH} \

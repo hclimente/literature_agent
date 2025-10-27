@@ -30,7 +30,7 @@ workflow PROCESS_ARTICLES {
 
         metadata_articles = EXTRACT_METADATA.out.pass
             .concat(EXTRACT_METADATA_RETRY.out.pass)
-        filtered_metadata = filterAndBatch(metadata_articles, params.batch_size, "metadata_doi", "NULL")
+        filtered_metadata = filterAndBatch(metadata_articles, params.batch_size, "doi", "NULL")
         SCREEN(
             filtered_metadata.no_match,
             file(params.screening.system_prompt),
