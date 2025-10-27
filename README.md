@@ -1,10 +1,17 @@
-# Papers, Please: Agentic framework for literature triaging
+# Papers, Please
 
-An agentic-workflow to assist researchers in staying up-to-date with literature by leveraging LLMs and tools to screen and prioritize scientific articles.
+Papers, Please is an agentic workflow that helps researchers stay up-to-date with scientific literature. It prioritizes articles from your favorite journals based on your interests and saves them to your Zotero library.
 
-## Pre-requisites
+## Key features
 
-- [Nextflow 25.04](https://www.nextflow.io/)
+- 🤖 **AI-Powered Article Screening**: Leverages Gemini to extract metadata and prioritize articles based on your research interests.
+- ⏰ **Set-and-Forget Automation**: Fork the repo, configure your secrets, and let GitHub Actions automatically screen the literature every week.
+- 🔧 **Modular Architecture**: Written in Nextflow and fully containerized, the workflow supports multiple data sources and can be easily extended to include new features.
+- 🪨 **Robust Validation and Error Handling**: Comprehensive type-safe data validation, exponential backoff retry mechanisms, API rate limits, separate pass/fail channels, and detailed logging.
+
+## Prerequisites
+
+- [Nextflow 25.10](https://www.nextflow.io/)
 - Docker
 - Add the following secrets to Nextflow's secret store:
     - Required:
@@ -46,7 +53,7 @@ The workflow will fetch the latest articles from the specified journals, screen 
     "priority_decision": "high",
     "url": "https://doi.org/xx.xxxx/xxxxx"
   },
-    {
+  {
     "title": "Sample Article Title 2",
     "abstract": "...",
     "journal": "Sample Journal",
@@ -57,7 +64,7 @@ The workflow will fetch the latest articles from the specified journals, screen 
 ]
 ```
 
-# Automated weekly runs on Github Actions
+## Automated weekly runs on GitHub Actions
 
 This workflow can be set up to run automatically on a weekly basis using GitHub Actions. The workflow will check for new articles based on your specified research interests and journals, process them, and save the results to your Zotero library.
 
@@ -76,4 +83,4 @@ To set up the automated weekly runs, follow these steps:
         library_type: "user" # or "group"
     ```
 
-1. Add [the required secrets](#pre-requisites) to your forked repository. See [here](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets#creating-secrets-for-a-repository) for more information.
+1. Add [the required secrets](#prerequisites) to your forked repository. See [here](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets#creating-secrets-for-a-repository) for more information.
