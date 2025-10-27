@@ -10,6 +10,7 @@ from httpx import HTTPStatusError
 from common.models import (
     ArticleList,
     Author,
+    InstitutionalAuthor,
     pprint,
 )
 from common.parsers import (
@@ -30,9 +31,14 @@ def process_author_list(author_data: list) -> list[Author]:
     """
     authors = []
     for author in author_data:
-        first_name = author["given"]
-        last_name = author["family"]
-        authors.append(Author(first_name=first_name, last_name=last_name))
+        if "name" in author:
+            # Institutional author
+            name = author["name"]
+            authors.append(InstitutionalAuthor(name=name))
+        else:
+            first_name = author["given"]
+            last_name = author["family"]
+            authors.append(Author(first_name=first_name, last_name=last_name))
     return authors
 
 

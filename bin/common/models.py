@@ -17,12 +17,18 @@ class Author(BaseModel):
     last_name: str
 
 
+class InstitutionalAuthor(BaseModel):
+    """Model representing an institutional author of a scientific article."""
+
+    name: str
+
+
 class Article(BaseModel):
     """Model representing a scientific article with metadata and processing results."""
 
     # Core metadata fields
     title: str | None = None
-    authors: list[Author] | None = []
+    authors: list[Author | InstitutionalAuthor] = []
     summary: str | None = None
     doi: str | None = None
     url: HttpUrl
