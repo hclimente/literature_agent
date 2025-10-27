@@ -166,7 +166,11 @@ def validate_llm_response(
             key = getattr(article, merge_key)
             response_pass[key] = article
         except Exception as e:
-            error_msg = f"Validation failed for item: {pprint(item)}\n{e}"
+            try:
+                error_msg = f"Validation failed for item: {pprint(item)}\n{e}"
+            except Exception:
+                # handle cases in which pprint(item) fails
+                error_msg = f"Validation failed for item: {item}\n{e}"
             handle_error(item, error_msg, allow_qc_errors)
 
     logging.info(f"Valid response for {len(response_pass)} articles.")

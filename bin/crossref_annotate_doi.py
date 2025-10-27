@@ -10,6 +10,7 @@ from httpx import HTTPStatusError
 from common.models import (
     ArticleList,
     Author,
+    InstitutionalAuthor,
     pprint,
 )
 from common.parsers import (
@@ -18,7 +19,7 @@ from common.parsers import (
 )
 
 
-def get_author_list(author_data: list) -> list[Author]:
+def process_author_list(author_data: list) -> list[Author]:
     """
     Convert raw author data from Crossref into a list of Author objects.
 
@@ -30,9 +31,14 @@ def get_author_list(author_data: list) -> list[Author]:
     """
     authors = []
     for author in author_data:
-        first_name = author["given"]
-        last_name = author["family"]
-        authors.append(Author(first_name=first_name, last_name=last_name))
+        if "name" in author:
+            # Institutional author
+            name = author["name"]
+            authors.append(InstitutionalAuthor(name=name))
+        else:
+            first_name = author["given"]
+            last_name = author["family"]
+            authors.append(Author(first_name=first_name, last_name=last_name))
     return authors
 
 
@@ -79,7 +85,9 @@ def fetch_metadata(articles_json: str, error_strategy: str) -> None:
         logging.debug(f"Fetched metadata for DOIs: {article.doi}")
         logging.debug(f"Metadata response: {metadata.works}")
 
-        article.authors = get_author_list(metadata.author[0])
+        author_list = getattr(metadata, "author", [[]])[0]
+        article.authors = process_author_list(author_list)
+
         journal_short_name = getattr(metadata, "short_container_title", [[None]])[0]
 
         if journal_short_name:

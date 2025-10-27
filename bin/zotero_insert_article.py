@@ -9,6 +9,8 @@ from pyzotero import zotero
 from common.models import (
     Article,
     ArticleList,
+    Author,
+    InstitutionalAuthor,
 )
 from common.parsers import (
     add_input_articles_json_argument,
@@ -62,13 +64,21 @@ def create_zotero_article(
     # Add creators/authors if available
     zotero_article["creators"] = []
     for author in item.authors:
-        zotero_article["creators"].append(
-            {
-                "creatorType": "author",
-                "firstName": author.first_name,
-                "lastName": author.last_name,
-            }
-        )
+        if isinstance(author, InstitutionalAuthor):
+            zotero_article["creators"].append(
+                {
+                    "creatorType": "author",
+                    "name": author.name,
+                }
+            )
+        elif isinstance(author, Author):
+            zotero_article["creators"].append(
+                {
+                    "creatorType": "author",
+                    "firstName": author.first_name,
+                    "lastName": author.last_name,
+                }
+            )
 
     # Add tags based on screening/priority
     zotero_article["tags"] = []

@@ -8,10 +8,11 @@ Your task is to extract the **Title**, **Summary**, **URL**, and **DOI** from th
 2.  **summary**: The complete abstract or summary.
 3.  **url**: The URL of the article.
 4.  **doi**: The Digital Object Identifier. If it is not present in the text, you MUST use your search tool to find it based on the title and other context.
+5. **error**: (optional) A brief description of any error that occurred during extraction.
 
 # JSON Output Structure and Rules:
 - The output must be a valid JSON object. When multiple articles are provided, output a JSON array of objects.
-- The keys of the nested JSON object must be exactly `title`, `summary`, `url`, and `doi`.
+- The keys of the nested JSON object must be exactly `title`, `summary`, `url`, and `doi`. If any error occurs during extraction, add an additional key `error` with a brief description of the error.
 - If any field cannot be found even after searching, its value in the JSON must be the string NULL.
 
 # Example 1: All fields present

@@ -1,5 +1,9 @@
 Journal 	RSS URL
 American Journal of Human Genetics	http://www.cell.com/ajhg/current.rss
+ArXiv Genomics	https://rss.arxiv.org/rss/q-bio.GN
+ArXiv Molecular Networks	https://rss.arxiv.org/rss/q-bio.MN
+ArXiv Populations and Evolution	https://rss.arxiv.org/rss/q-bio.PE
+ArXiv Quantitative Methods	https://rss.arxiv.org/rss/q-bio.QM
 Bioinformatics	https://academic.oup.com/rss/site_5139/3001.xml
 BiorXiv Bioinformatics	https://connect.biorxiv.org/biorxiv_xml.php?subject=bioinformatics
 BMC Bioinformatics	https://bmcbioinformatics.biomedcentral.com/articles/most-recent/rss.xml
