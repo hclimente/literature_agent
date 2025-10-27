@@ -11,7 +11,8 @@ process EXTRACT_MORE_METADATA {
     script:
     """
     crossref_annotate_doi.py \
---articles_json ${ARTICLES_JSON}
+--articles_json ${ARTICLES_JSON} \
+--error_strategy include
     """
 
 }
