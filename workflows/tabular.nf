@@ -17,6 +17,7 @@ workflow FROM_TABULAR {
                 row['last_checked'] = global_cutoff_date
                 return row
             }
+        journals = params.debug ? journals.take(5) : journals
 
         FETCH_ARTICLES(journals, 50)
 
