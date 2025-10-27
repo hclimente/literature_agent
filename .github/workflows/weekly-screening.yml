@@ -61,7 +61,7 @@ jobs:
         fi
 
         nextflow run main.nf \
-          -params-file config/pipeline_parameters.yaml \
+          -params-file config/config.yaml \
           --backend.from journals_tsv \
           --backend.to zotero \
           -ansi-log false \
