@@ -52,11 +52,11 @@ Articles that satisfy **1 or fewer** high-priority criteria:
 ## JSON Schema:
 ```json
 [
-  {
+  {{
     "doi": "<string>",
     "decision": "<string: 'high' | 'medium' | 'low'>",
     "reasoning": "<string: one sentence explaining matched criteria>"
-  }
+  }}
 ]
 ```
 
@@ -66,42 +66,42 @@ Articles that satisfy **1 or fewer** high-priority criteria:
 Input: "A Review of Network-Based Methods for Drug Target Identification in Oncology"
 Output:
 ```json
-[{"doi":"10.1234/example1","decision":"high","reasoning":"Review combining multiple core subfields and applications."}]
+[{{"doi":"10.1234/example1","decision":"high","reasoning":"Review combining multiple core subfields and applications."}}]
 ```
 
 ## Example 2: HIGH - Novel method in core area
 Input: "DeepTarget: A deep learning framework for cancer drug target prediction using multi-omics networks"
 Output:
 ```json
-[{"doi":"10.1234/example2","decision":"high","reasoning":"Novel method for core application combining multiple key subfields."}]
+[{{"doi":"10.1234/example2","decision":"high","reasoning":"Novel method for core application combining multiple key subfields."}}]
 ```
 
 ## Example 3: MEDIUM - Large-scale study in key subfield
 Input: "Pan-cancer analysis of gene essentiality across 1,000 human cancer cell lines"
 Output:
 ```json
-[{"doi":"10.1234/example3","decision":"medium","reasoning":"Large-scale study in key subfield using established methods."}]
+[{{"doi":"10.1234/example3","decision":"medium","reasoning":"Large-scale study in key subfield using established methods."}}]
 ```
 
 ## Example 4: MEDIUM - New method in adjacent area
 Input: "Graph neural networks for protein function prediction from sequence data"
 Output:
 ```json
-[{"doi":"10.1234/example4","decision":"medium","reasoning":"Novel method in relevant field but for non-core application."}]
+[{{"doi":"10.1234/example4","decision":"medium","reasoning":"Novel method in relevant field but for non-core application."}}]
 ```
 
 ## Example 5: LOW - Peripheral focus
 Input: "Network analysis identifies potential therapeutic targets in Alzheimer's disease"
 Output:
 ```json
-[{"doi":"10.1234/example5","decision":"low","reasoning":"Relevant methodology applied outside primary research focus."}]
+[{{"doi":"10.1234/example5","decision":"low","reasoning":"Relevant methodology applied outside primary research focus."}}]
 ```
 
 ## Example 6: LOW - Standard application
 Input: "Machine learning predicts patient outcomes from electronic health records"
 Output:
 ```json
-[{"doi":"10.1234/example6","decision":"low","reasoning":"Standard application outside core subfields and applications."}]
+[{{"doi":"10.1234/example6","decision":"low","reasoning":"Standard application outside core subfields and applications."}}]
 ```
 
 # Important Considerations

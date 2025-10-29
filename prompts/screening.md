@@ -44,11 +44,11 @@ Your goal is to remove clear mismatches quickly (80-90% recall). This is a filte
 ## JSON Schema:
 ```json
 [
-  {
+  {{
     "doi": "<string>",
     "decision": <boolean>,
     "reasoning": "<string: brief one-sentence explanation>"
-  }
+  }}
 ]
 ```
 
@@ -58,56 +58,56 @@ Your goal is to remove clear mismatches quickly (80-90% recall). This is a filte
 Input: "A Review of Network-Based Methods for Drug Target Identification in Oncology"
 Output:
 ```json
-[{"doi":"10.1234/example1","decision":true,"reasoning":"Review combining Network Biology, Drug Target Discovery, and Cancer Biology."}]
+[{{"doi":"10.1234/example1","decision":true,"reasoning":"Review combining Network Biology, Drug Target Discovery, and Cancer Biology."}}]
 ```
 
 ## Example 2: PASS - New computational method
 Input: "GraphReg: A statistical framework for inferring gene regulatory networks from human genomic data"
 Output:
 ```json
-[{"doi":"10.1234/example2","decision":true,"reasoning":"New computational method for Network Biology in human context."}]
+[{{"doi":"10.1234/example2","decision":true,"reasoning":"New computational method for Network Biology in human context."}}]
 ```
 
 ## Example 3: PASS - Methodological overview
 Input: "Hyperparameter optimization strategies in machine learning: a comprehensive review"
 Output:
 ```json
-[{"doi":"10.1234/example3","decision":true,"reasoning":"Methodological overview in primary field of Machine Learning."}]
+[{{"doi":"10.1234/example3","decision":true,"reasoning":"Methodological overview in primary field of Machine Learning."}}]
 ```
 
 ## Example 4: PASS - Method with broad applicability
 Input: "DeepVariant: A universal SNP caller using deep learning trained on multiple model organisms"
 Output:
 ```json
-[{"doi":"10.1234/example4","decision":true,"reasoning":"New computational method in right field with broad applicability."}]
+[{{"doi":"10.1234/example4","decision":true,"reasoning":"New computational method in right field with broad applicability."}}]
 ```
 
 ## Example 5: FAIL - Outside scope
 Input: "Single-cell RNA-seq analysis reveals novel cell types in Drosophila development"
 Output:
 ```json
-[{"doi":"10.1234/example5","decision":false,"reasoning":"Primary focus outside stated scope without clear application to research interests."}]
+[{{"doi":"10.1234/example5","decision":false,"reasoning":"Primary focus outside stated scope without clear application to research interests."}}]
 ```
 
 ## Example 6: FAIL - Wrong methodology
 Input: "Single-cell RNA-seq analysis reveals novel cell types in Drosophila development"
 Output:
 ```json
-[{"doi":"10.1234/example5","decision":false,"reasoning":"Primary focus on Drosophila biology without clear human application."}]
+[{{"doi":"10.1234/example5","decision":false,"reasoning":"Primary focus on Drosophila biology without clear human application."}}]
 ```
 
 ## Example 6: FAIL - Wrong methodology
 Input: "Phase II Clinical Trial Results for a Novel Kinase Inhibitor in Human Lung Cancer"
 Output:
 ```json
-[{"doi":"10.1234/example6","decision":false,"reasoning":"Clinical trial without computational/methodological component."}]
+[{{"doi":"10.1234/example6","decision":false,"reasoning":"Clinical trial without computational/methodological component."}}]
 ```
 
 ## Example 7: FAIL - Wrong discipline
 Input: "CRISPR-Cas9 mediated knockout of TP53 in human cell lines reveals novel phenotypes"
 Output:
 ```json
-[{"doi":"10.1234/example7","decision":false,"reasoning":"Pure experimental work without computational analysis component."}]
+[{{"doi":"10.1234/example7","decision":false,"reasoning":"Pure experimental work without computational analysis component."}}]
 ```
 
 # Important Considerations
