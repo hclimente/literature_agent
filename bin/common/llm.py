@@ -2,8 +2,14 @@ import logging
 
 from google import genai
 from google.genai import types
+from google.genai.types import (
+    Content,
+    Part,
+)
 
-from .models import pprint
+from .models import (
+    pprint,
+)
 
 
 def llm_query(
@@ -12,7 +18,7 @@ def llm_query(
     model: str,
     api_key: str,
     research_interests_path: str = None,
-    llm_tools: list = [],
+    tools: list = [],
 ):
     """
     Query LLM to process articles based on user research interests.
@@ -23,7 +29,7 @@ def llm_query(
         model (str): The model to use for screening. One of 'gemini-1.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'.
         api_key (str): The Google API key for authentication.
         research_interests_path (str): The path to a text file containing the user's research interests. It will be inserted into the system prompt.
-        llm_tools (list): List of LLM tools to use.
+        tools (list): List of tools for the LLM to use.
 
     Returns:
         str: The LLM response text.
@@ -56,17 +62,30 @@ def llm_query(
     prompt = f"Here are the articles: {pprint(articles)}"
     logging.debug(f"User prompt: {prompt}")
 
-    response_text = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            thinking_config=types.ThinkingConfig(include_thoughts=False),
-            tools=llm_tools,
+    context = [
+        Content(role="user", parts=[Part(text=system_instruction)]),
+        Content(
+            role="model",
+            parts=[
+                Part(
+                    text="Understood. I will analyze the articles based on the provided research interests and use the available tools if necessary. Please provide the articles."
+                )
+            ],
         ),
+        Content(role="user", parts=[Part(text=prompt)]),
+    ]
+
+    config = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(include_thoughts=False),
+        tools=tools,
     )
 
-    response_text = response_text.text.strip()
-    logging.debug(f"LLM Response: {response_text}")
+    response = client.models.generate_content(
+        model=model,
+        contents=context,
+        config=config,
+    )
 
+    response_text = response.text.strip()
+    logging.debug(f"✅ LLM Response: {response_text}")
     return response_text

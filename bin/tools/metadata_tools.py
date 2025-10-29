@@ -4,6 +4,28 @@ import requests
 import xml.etree.ElementTree as ET
 
 
+def get_doi_for_arxiv_url(arxiv_url: str) -> str | None:
+    """
+    Retrieves the DOI for a given arXiv URL using the arXiv API.
+
+    Args:
+        arxiv_url (str): The URL of the arXiv article.
+    Returns:
+        The DOI as a string, or None if not found.
+    """
+    logging.info("-" * 20)
+    logging.info("get_doi_for_arxiv_url called with the following arguments:")
+    logging.info(f"arxiv_url : {arxiv_url}")
+    logging.info("-" * 20)
+
+    base_url = "10.48550/arXiv."
+    arxiv_id = arxiv_url.rstrip("/").split("/")[-1]
+    doi = f"{base_url}{arxiv_id}"
+    logging.info(f"Constructed DOI: {doi}")
+
+    return doi
+
+
 def get_abstract_from_doi(doi: str, email: str = os.environ.get("USER_EMAIL")) -> str:
     """
     Retrieves the abstract of a publication from its DOI.
@@ -25,17 +47,17 @@ def get_abstract_from_doi(doi: str, email: str = os.environ.get("USER_EMAIL")) -
     BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
     # --- 1. ESearch: Convert DOI to PMID (Uses XML) ---
-    esearch_url = (
+    research_url = (
         f"{BASE_URL}esearch.fcgi?db=pubmed&term={doi}[doi]&retmode=xml&email={email}"
     )
 
     try:
         logging.info("⌛ Began retrieving PMID from DOI...")
-        esearch_response = requests.get(esearch_url, timeout=10)
-        esearch_response.raise_for_status()
+        research_response = requests.get(research_url, timeout=10)
+        research_response.raise_for_status()
 
         # Parse ESearch XML
-        root_esearch = ET.fromstring(esearch_response.content)
+        root_esearch = ET.fromstring(research_response.content)
         id_element = root_esearch.find("./IdList/Id")
 
         if id_element is None or not id_element.text:

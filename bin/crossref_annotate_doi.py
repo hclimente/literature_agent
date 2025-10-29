@@ -39,7 +39,7 @@ def process_author_list(author_data: list) -> list[Author]:
             first_name = author["given"]
             last_name = author["family"]
             authors.append(Author(first_name=first_name, last_name=last_name))
-    return authors
+    return authors if authors else None
 
 
 def fetch_metadata(articles_json: str, error_strategy: str) -> None:

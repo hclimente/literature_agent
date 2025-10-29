@@ -28,7 +28,7 @@ class Article(BaseModel):
 
     # Core metadata fields
     title: str | None = None
-    authors: list[Author | InstitutionalAuthor] = []
+    authors: list[Author | InstitutionalAuthor] | None = None
     summary: str | None = None
     doi: str | None = None
     url: HttpUrl

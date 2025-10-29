@@ -18,6 +18,7 @@ from common.validation import (
 from tools.metadata_tools import (
     get_abstract_from_doi,
     springer_get_abstract_from_doi,
+    get_doi_for_arxiv_url,
 )
 
 
@@ -64,7 +65,11 @@ def llm_process_articles(
         model=model,
         api_key=os.environ.get("GOOGLE_API_KEY"),
         research_interests_path=research_interests_path,
-        llm_tools=[get_abstract_from_doi, springer_get_abstract_from_doi],
+        tools=[
+            get_abstract_from_doi,
+            springer_get_abstract_from_doi,
+            get_doi_for_arxiv_url,
+        ],
     )
 
     if debug:
@@ -130,4 +135,5 @@ if __name__ == "__main__":
         research_interests_path,
         args.model,
         args.allow_qc_errors,
+        args.debug,
     )
