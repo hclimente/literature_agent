@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import logging
-import os
 import pathlib
 
 from pyzotero import zotero
@@ -16,6 +15,7 @@ from common.parsers import (
     add_input_articles_json_argument,
     add_debug_argument,
 )
+from common.utils import get_env_variable
 
 
 def create_zotero_article(
@@ -178,7 +178,7 @@ def insert_article(
     """
 
     zot = zotero.Zotero(
-        zotero_user_id, zotero_library_type, os.environ.get("ZOTERO_API_KEY")
+        zotero_user_id, zotero_library_type, get_env_variable("ZOTERO_API_KEY")
     )
 
     json_string = pathlib.Path(articles_json).read_text()

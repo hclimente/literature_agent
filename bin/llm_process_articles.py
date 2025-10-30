@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import logging
-import os
 import pathlib
 
 from common.llm import llm_query
@@ -11,6 +10,7 @@ from common.parsers import (
     add_debug_argument,
     add_llm_arguments,
 )
+from common.utils import get_env_variable
 from common.validation import (
     save_validated_responses,
     validate_llm_response,
@@ -63,7 +63,7 @@ def llm_process_articles(
         articles=articles,
         system_prompt_path=system_prompt_path,
         model=model,
-        api_key=os.environ.get("GOOGLE_API_KEY"),
+        api_key=get_env_variable("GOOGLE_API_KEY"),
         research_interests_path=research_interests_path,
         tools=[
             get_abstract_from_doi,
@@ -72,10 +72,8 @@ def llm_process_articles(
         ],
     )
 
-    if debug:
-        debug_path = f"debug_{stage}_response.txt"
-        pathlib.Path(debug_path).write_text(response_text)
-        logging.debug(f"Wrote LLM response to {debug_path}.")
+    # for debugging purposes, save the raw LLM response to a file
+    pathlib.Path("llm_response_text.txt").write_text(response_text)
 
     merge_key = "url" if stage == "metadata" else "doi"
     response_pass = validate_llm_response(

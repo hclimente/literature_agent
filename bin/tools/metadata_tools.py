@@ -1,7 +1,8 @@
 import logging
-import os
 import requests
 import xml.etree.ElementTree as ET
+
+from common.utils import get_env_variable
 
 
 def get_doi_for_arxiv_url(arxiv_url: str) -> str | None:
@@ -26,7 +27,7 @@ def get_doi_for_arxiv_url(arxiv_url: str) -> str | None:
     return doi
 
 
-def get_abstract_from_doi(doi: str, email: str = os.environ.get("USER_EMAIL")) -> str:
+def get_abstract_from_doi(doi: str, email: str = get_env_variable("USER_EMAIL")) -> str:
     """
     Retrieves the abstract of a publication from its DOI.
 
@@ -112,7 +113,7 @@ def get_abstract_from_doi(doi: str, email: str = os.environ.get("USER_EMAIL")) -
 
 
 def springer_get_abstract_from_doi(
-    doi: str, api_key: str = os.environ.get("SPRINGER_META_API_KEY")
+    doi: str, api_key: str = get_env_variable("SPRINGER_META_API_KEY")
 ) -> str | None:
     """
     Retrieves the abstract for an article from a Springer journal using its DOI.
