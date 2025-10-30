@@ -5,14 +5,14 @@ import xml.etree.ElementTree as ET
 from common.utils import get_env_variable
 
 
-def get_doi_for_arxiv_url(arxiv_url: str) -> str | None:
+def get_doi_for_arxiv_url(arxiv_url: str) -> str:
     """
     Retrieves the DOI for a given arXiv URL using the arXiv API.
 
     Args:
         arxiv_url (str): The URL of the arXiv article.
     Returns:
-        The DOI as a string, or None if not found.
+        The DOI as a string.
     """
     logging.info("-" * 20)
     logging.info("get_doi_for_arxiv_url called with the following arguments:")
@@ -27,18 +27,18 @@ def get_doi_for_arxiv_url(arxiv_url: str) -> str | None:
     return doi
 
 
-def get_abstract_from_doi(doi: str, email: str = get_env_variable("USER_EMAIL")) -> str:
+def get_abstract_from_doi(doi: str) -> str | None:
     """
     Retrieves the abstract of a publication from its DOI.
 
     Args:
         doi (str): The Digital Object Identifier (DOI) of the article.
-        email: Your email address, required by NCBI's API usage policy. Defaults to the USER_EMAIL
-        environment variable.
 
     Returns:
-        The abstract text as a string, or an error message if retrieval fails.
+        The abstract text as a string, or None if not found.
     """
+    email = get_env_variable("USER_EMAIL")
+
     logging.info("-" * 20)
     logging.info("get_abstract_from_doi called with the following arguments:")
     logging.info(f"doi   : {doi}")
@@ -62,7 +62,8 @@ def get_abstract_from_doi(doi: str, email: str = get_env_variable("USER_EMAIL"))
         id_element = root_esearch.find("./IdList/Id")
 
         if id_element is None or not id_element.text:
-            return f"Error: No PMID found for DOI: {doi}."
+            logging.error(f"❌ No PMID found for DOI: {doi}")
+            return None
 
         pmid = id_element.text
         logging.info(f"Retrieved PMID: {pmid}")
@@ -84,9 +85,8 @@ def get_abstract_from_doi(doi: str, email: str = get_env_variable("USER_EMAIL"))
         abstract_parts = root_efetch.findall(".//AbstractText")
 
         if not abstract_parts:
-            error_message = f"PMID {pmid} found, but no AbstractText tags present."
-            logging.error(f"❌ {error_message}")
-            return error_message
+            logging.error(f"❌ PMID {pmid} found, but no AbstractText tags present.")
+            return None
 
         # Concatenate multiple parts if present (common for structured abstracts)
         abstract_text = "\n\n".join(
@@ -95,11 +95,10 @@ def get_abstract_from_doi(doi: str, email: str = get_env_variable("USER_EMAIL"))
 
         # A common issue is a missing <Abstract> tag, in which case the text will be empty.
         if not abstract_text:
-            error_message = (
-                f"PMID {pmid} found, but the abstract text was empty after parsing."
+            logging.error(
+                f"❌ PMID {pmid} found, but the abstract text was empty after parsing."
             )
-            logging.error(f"❌ {error_message}")
-            return error_message
+            return None
 
         logging.info(f"Retrieved Abstract: {abstract_text[:60]}...")
         logging.info("✅ Done retrieving abstract from PMID")
@@ -112,9 +111,7 @@ def get_abstract_from_doi(doi: str, email: str = get_env_variable("USER_EMAIL"))
         return f"Parsing Error: Failed to parse XML response. {e}"
 
 
-def springer_get_abstract_from_doi(
-    doi: str, api_key: str = get_env_variable("SPRINGER_META_API_KEY")
-) -> str | None:
+def springer_get_abstract_from_doi(doi: str) -> str | None:
     """
     Retrieves the abstract for an article from a Springer journal using its DOI.
 
@@ -123,8 +120,10 @@ def springer_get_abstract_from_doi(
         api_key (str): Your Springer Meta API key.
 
     Returns:
-        The abstract text as a string, or an error message if retrieval fails.
+        The abstract text as a string, or None if not found.
     """
+    api_key: str = get_env_variable("SPRINGER_META_API_KEY")
+
     logging.info("-" * 20)
     logging.info("springer_get_abstract_from_doi called with the following arguments:")
     logging.info(f"doi     : {doi}")
@@ -145,17 +144,15 @@ def springer_get_abstract_from_doi(
 
         # Check if any records were returned
         if not data.get("records"):
-            warn_message = f"No records found for DOI: {doi}"
-            logging.warning(f"⚠️ {warn_message}")
-            return warn_message
+            logging.warning(f"⚠️ No records found for DOI: {doi}")
+            return None
 
         # Extract the abstract from the first record
         # The abstract can contain HTML tags like <p>, <i>, etc.
         abstract = data["records"][0].get("abstract")
         if not abstract:
-            warn_message = f"No abstract found for DOI: {doi}"
-            logging.warning(f"⚠️ {warn_message}")
-            return warn_message
+            logging.warning(f"⚠️ No abstract found for DOI: {doi}")
+            return None
 
         logging.info(f"Retrieved Abstract: {abstract[:60]}...")
         logging.info("✅ Done retrieving abstract from Springer API")
