@@ -56,7 +56,17 @@ jobs:
     - name: Run tests with coverage
       working-directory: ./bin
       run: |
-        uv run pytest tests/ --cov=common --cov-report=xml --cov-report=term-missing
+        uv run pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing --cov-report=html
+
+    - name: Generate coverage report
+      if: always()
+      working-directory: ./bin
+      run: |
+        echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        uv run coverage report >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
