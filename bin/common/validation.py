@@ -219,7 +219,7 @@ def save_validated_responses(
     logging.info("✅ Done validating responses.")
 
 
-def get_common_variations(expected_values: list) -> dict:
+def get_common_variations(expected_values: list):
     """
     Generate common variations of expected values (case, quotes, punctuation).
 

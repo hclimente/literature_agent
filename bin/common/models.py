@@ -9,6 +9,8 @@ from pydantic import (
     TypeAdapter,
 )
 
+from .validation import get_common_variations
+
 
 class Author(BaseModel):
     """Model representing an author of a scientific article."""
@@ -104,35 +106,6 @@ class PriorityResponse(BaseModel):
     def clean_response(cls, decision: str) -> str:
         mapping = get_common_variations(["high", "medium", "low"])
         return mapping[decision.lower()]
-
-
-def get_common_variations(expected_values: list):
-    """
-    Generate common variations of expected values (case, quotes, punctuation).
-
-    Args:
-        expected_values (list): List of expected values.
-
-    Returns:
-        dict: Mapping of variations to normalized values.
-    """
-    d = {}
-
-    for v in expected_values:
-        d[v] = v
-        d[v.lower()] = v
-        d[v.upper()] = v
-        d[v.capitalize()] = v
-        d[v.title()] = v
-
-    update = {}
-    for k, v in d.items():
-        update[f"'{k}'"] = v
-        update[f'"{k}"'] = v
-        update[f"{k}."] = v
-
-    d.update(update)
-    return d
 
 
 def pprint(model: BaseModel, exclude_none: bool = True) -> str:
