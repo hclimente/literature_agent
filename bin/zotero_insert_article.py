@@ -52,7 +52,7 @@ def add_creators(authors: list | None) -> list:
 
 def create_zotero_article(
     item: Article, zotero_collection_id, zot: zotero.Zotero
-) -> zotero.Item:
+) -> dict:
     """
     Create a Zotero journal article item from an Article object.
 
@@ -62,7 +62,7 @@ def create_zotero_article(
         zot (zotero.Zotero): The Zotero client instance.
 
     Returns:
-        zotero.Item: The created Zotero article item.
+        dict: The created Zotero article item.
     """
     # Get a template for a journal article
     zotero_article = zot.item_template("journalArticle")
@@ -113,7 +113,7 @@ def create_zotero_article(
     return zotero_article
 
 
-def create_zotero_note(item: Article, zot: zotero.Zotero) -> zotero.Item:
+def create_zotero_note(item: Article, zot: zotero.Zotero) -> dict:
     note = zot.item_template("note")
 
     note["parentItem"] = item.zotero_key
@@ -242,7 +242,9 @@ def insert_article(
             notes_to_insert = []
             counter = 0
 
-    insert_batch(zot, notes_to_insert, False)
+    # Only insert remaining notes if there are any
+    if notes_to_insert:
+        insert_batch(zot, notes_to_insert, False)
 
 
 if __name__ == "__main__":
