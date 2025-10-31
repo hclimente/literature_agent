@@ -68,7 +68,7 @@ def remove_processed(
 
     if articles_to_process:
         with open("unprocessed_articles.json", "w") as f:
-            f.write(pprint(articles))
+            f.write(pprint(articles_to_process))
 
 
 if __name__ == "__main__":
