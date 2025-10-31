@@ -61,7 +61,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text") as mock_write,
         ):
             mock_llm.return_value = mock_response
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -107,33 +107,42 @@ class TestLLMProcessArticles:
 
         mock_response = '{"articles": []}'
 
-        with (
-            patch("llm_process_articles.llm_query") as mock_llm,
-            patch("llm_process_articles.validate_llm_response") as mock_validate,
-            patch("llm_process_articles.pathlib.Path.write_text"),
-        ):
-            mock_llm.return_value = mock_response
-            mock_validate.return_value = True
+        try:
+            with (
+                patch("llm_process_articles.llm_query") as mock_llm,
+                patch("llm_process_articles.validate_llm_response") as mock_validate,
+                patch("llm_process_articles.pathlib.Path.write_text"),
+            ):
+                mock_llm.return_value = mock_response
+                mock_validate.return_value = {}
 
-            # Execute
-            llm_process_articles(
-                stage="screening",
-                articles_json=str(articles_json),
-                system_prompt_path=str(system_prompt),
-                research_interests_path=str(research_interests),
-                model="gemini-2.5-flash-lite",
-                allow_qc_errors=True,
-                debug=True,
-            )
+                # Execute
+                llm_process_articles(
+                    stage="screening",
+                    articles_json=str(articles_json),
+                    system_prompt_path=str(system_prompt),
+                    research_interests_path=str(research_interests),
+                    model="gemini-2.5-flash-lite",
+                    allow_qc_errors=True,
+                    debug=True,
+                )
 
-            # Verify
-            call_kwargs = mock_llm.call_args[1]
-            assert call_kwargs["research_interests_path"] == str(research_interests)
-            assert call_kwargs["model"] == "gemini-2.5-flash-lite"
+                # Verify
+                call_kwargs = mock_llm.call_args[1]
+                assert call_kwargs["research_interests_path"] == str(research_interests)
+                assert call_kwargs["model"] == "gemini-2.5-flash-lite"
 
-            assert mock_validate.call_args[1]["stage"] == "screening"
-            assert mock_validate.call_args[1]["merge_key"] == "doi"
-            assert mock_validate.call_args[1]["allow_qc_errors"] is True
+                assert mock_validate.call_args[1]["stage"] == "screening"
+                assert mock_validate.call_args[1]["merge_key"] == "doi"
+                assert mock_validate.call_args[1]["allow_qc_errors"] is True
+        finally:
+            # Cleanup: Remove generated JSON files
+            from pathlib import Path
+
+            for pattern in ["screening_pass.json", "screening_fail.json"]:
+                file_path = Path(pattern)
+                if file_path.exists():
+                    file_path.unlink()
 
     def test_priority_stage_uses_doi_merge_key(
         self, sample_articles, mock_env, tmp_path
@@ -156,7 +165,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text"),
         ):
             mock_llm.return_value = '{"articles": []}'
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -191,7 +200,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text") as mock_write,
         ):
             mock_llm.return_value = mock_response
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -223,7 +232,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text"),
         ):
             mock_llm.return_value = '{"articles": []}'
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -259,7 +268,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text"),
         ):
             mock_llm.return_value = '{"articles": []}'
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -297,7 +306,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text"),
         ):
             mock_llm.return_value = '{"articles": []}'
-            mock_validate.return_value = False
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -313,8 +322,8 @@ class TestLLMProcessArticles:
             # Verify validation was called and save was still called
             mock_validate.assert_called_once()
             mock_save.assert_called_once()
-            # Check that response_pass=False was passed to save
-            assert mock_save.call_args[1]["response_pass"] is False
+            # Check that response_pass={} (empty dict) was passed to save
+            assert mock_save.call_args[1]["response_pass"] == {}
 
     def test_allow_qc_errors_propagates(self, sample_articles, mock_env, tmp_path):
         """Test that allow_qc_errors flag is passed through"""
@@ -332,7 +341,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text"),
         ):
             mock_llm.return_value = '{"articles": []}'
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -366,7 +375,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text"),
         ):
             mock_llm.return_value = '{"articles": []}'
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -404,7 +413,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text"),
         ):
             mock_llm.return_value = '{"articles": []}'
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Test each stage
             for stage in ["metadata", "screening", "priority"]:
@@ -444,7 +453,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text"),
         ):
             mock_llm.return_value = mock_response
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -476,7 +485,7 @@ class TestLLMProcessArticles:
             patch("llm_process_articles.pathlib.Path.write_text"),
         ):
             mock_llm.return_value = '{"articles": []}'
-            mock_validate.return_value = True
+            mock_validate.return_value = {}
 
             # Execute
             llm_process_articles(
@@ -519,7 +528,7 @@ class TestLLMProcessArticles:
                 patch("llm_process_articles.pathlib.Path.write_text"),
             ):
                 mock_llm.return_value = '{"articles": []}'
-                mock_validate.return_value = True
+                mock_validate.return_value = {}
 
                 # Execute
                 llm_process_articles(
