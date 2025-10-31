@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 from .models import (
     MetadataResponse,
@@ -23,8 +24,12 @@ def validate_json_response(response_text: str) -> dict:
         raise ValidationError(response_text, "Empty or non-string response.")
 
     # remove ``` at the start and end if present
-    if response_text.startswith("```json") and response_text.endswith("```"):
-        response_text = response_text[7:-3].strip()
+    # Handle cases where there's text before ```json
+
+    json_match = re.search(r"```json\s*\n", response_text)
+    if json_match and response_text.endswith("```"):
+        response_text = response_text[json_match.end() :].strip()
+        response_text = response_text[:-3].strip()
     elif response_text.startswith("```") and response_text.endswith("```"):
         response_text = response_text[3:-3].strip()
     elif response_text.startswith("`") and response_text.endswith("`"):

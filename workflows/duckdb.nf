@@ -14,8 +14,8 @@ workflow FROM_DUCKDB {
         if ( !db.exists() ) {
             println "Articles database not found. Creating a new one at: ${db}."
 
-            global_cutoff_date = new Date(System.currentTimeMillis() - 15 * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
-            println "Global cutoff date set to: ${global_cutoff_date}"
+            global_cutoff_date = new Date(System.currentTimeMillis() - params.days_back * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
+            println "Global cutoff date set to ${params.days_back} days back (${global_cutoff_date})."
 
             db_filename = db.name
             db_parent_dir = db.parent
@@ -30,16 +30,26 @@ workflow FROM_DUCKDB {
 
         FETCH_ARTICLES(journals, 50)
 
-        fetched_batches = batchArticles(FETCH_ARTICLES.out, 1000)
+    emit:
+        FETCH_ARTICLES.out
+
+}
+
+workflow REMOVE_ARTICLES_IN_DUCKDB {
+
+    take:
+        articles_json
+
+    main:
         REMOVE_PROCESSED(
-            fetched_batches,
+            batchArticles(articles_json, 1000),
             db
         )
 
-        articles_to_process = batchArticles(REMOVE_PROCESSED.out, params.batch_size)
+        filtered_articles = batchArticles(REMOVE_PROCESSED.out, params.batch_size)
 
     emit:
-        articles_to_process
+        filtered_articles
 
 }
 

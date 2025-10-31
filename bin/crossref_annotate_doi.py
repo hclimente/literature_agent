@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import logging
-import os
 import pathlib
 
 from habanero import Crossref, WorksContainer
@@ -17,6 +16,7 @@ from common.parsers import (
     add_input_articles_json_argument,
     add_debug_argument,
 )
+from common.utils import get_env_variable
 
 
 def process_author_list(author_data: list) -> list[Author]:
@@ -39,7 +39,7 @@ def process_author_list(author_data: list) -> list[Author]:
             first_name = author["given"]
             last_name = author["family"]
             authors.append(Author(first_name=first_name, last_name=last_name))
-    return authors
+    return authors if authors else None
 
 
 def fetch_metadata(articles_json: str, error_strategy: str) -> None:
@@ -62,9 +62,11 @@ def fetch_metadata(articles_json: str, error_strategy: str) -> None:
     logging.info(f"Loaded {len(articles)} articles from {articles_json}.")
     logging.debug(f"Articles: {pprint(articles)}")
 
+    user_email = get_env_variable("USER_EMAIL")
+
     try:
         # set a mailto address to get into the "polite pool"
-        cr = Crossref(mailto=os.environ["USER_EMAIL"])
+        cr = Crossref(mailto=user_email)
     except KeyError:
         cr = Crossref()
     logging.info("Initialized Crossref client.")

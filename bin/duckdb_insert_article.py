@@ -30,8 +30,6 @@ def insert_article(
     logging.info(f"Loaded {len(articles)} articles from {articles_json}.")
 
     for a in articles:
-        a["doi"] = a["doi"] if a["doi"] != "NULL" else None
-
         logging.info(f"Inserting article: {a['title'][:50]}...")
 
         with duckdb.connect(db_path) as con:
