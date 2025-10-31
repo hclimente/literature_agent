@@ -65,7 +65,7 @@ process VALIDATE {
 process COLLECT_OUTPUTS {
 
     container "community.wave.seqera.io/library/jq:1.8.1--c46af957d69e6f58"
-    publishDir params.articles_json.outdir, mode: 'copy'
+    publishDir params.to_json_outdir, mode: 'copy'
 
     input:
     path "articles_*.json"

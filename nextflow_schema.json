@@ -1,0 +1,185 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/hclimente/literature_agent/main/nextflow_schema.json",
+    "title": "Papers, Please Pipeline Parameters",
+    "description": "An agentic workflow that helps researchers stay up-to-date with scientific literature by prioritizing articles based on their interests.",
+    "type": "object",
+    "$defs": {
+        "input_parameters": {
+            "title": "Input parameters",
+            "type": "object",
+            "description": "Parameters for defining input sources and article retrieval",
+            "properties": {
+                "journals_tsv": {
+                    "type": "string",
+                    "format": "file-path",
+                    "pattern": "^\\S+\\.tsv$",
+                    "description": "Path to TSV file containing journal RSS feeds to monitor",
+                    "help_text": "Tab-separated file with columns for journal names and their RSS feed URLs. See config/journals.tsv for example format.",
+                    "default": "config/journals.tsv",
+                    "exists": true
+                },
+                "research_interests": {
+                    "type": "string",
+                    "format": "file-path",
+                    "pattern": "^\\S+\\.md$",
+                    "description": "Path to Markdown file describing research interests",
+                    "help_text": "Markdown file describing your research interests, used by the LLM to screen and prioritize articles. See config/research_interests.md for example format.",
+                    "default": "config/research_interests.md",
+                    "exists": true
+                },
+                "from": {
+                    "type": "string",
+                    "enum": ["articles_json", "duckdb", "journals_tsv"],
+                    "description": "Source backend for fetching articles",
+                    "help_text": "Select where to fetch articles from: 'journals_tsv' for RSS feeds, 'duckdb' for existing database, or 'articles_json' for JSON file.",
+                    "default": "journals_tsv"
+                },
+                "from_json_input": {
+                    "type": "string",
+                    "format": "file-path",
+                    "pattern": "^\\S+\\.json$",
+                    "description": "Input JSON file when using 'articles_json' as source backend",
+                    "help_text": "Path to JSON file containing articles. Only used when 'from' is set to 'articles_json'.",
+                    "default": "articles.json"
+                },
+                "from_duckdb_input": {
+                    "type": "string",
+                    "format": "file-path",
+                    "pattern": "^\\S+\\.duckdb$",
+                    "description": "Input DuckDB database file when using 'duckdb' as source backend",
+                    "help_text": "Path to DuckDB database file. Only used when 'from' is set to 'duckdb'.",
+                    "default": "papers_please.duckdb"
+                },
+                "days_back": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Number of days to look back when fetching articles",
+                    "help_text": "Articles published within this many days from the current date will be fetched and processed.",
+                    "default": 8
+                }
+            },
+            "required": ["journals_tsv", "research_interests"]
+        },
+        "output_parameters": {
+            "title": "Output parameters",
+            "type": "object",
+            "description": "Parameters for defining output destinations",
+            "properties": {
+                "to": {
+                    "type": "string",
+                    "enum": ["articles_json", "duckdb", "zotero"],
+                    "description": "Output backend for storing processed articles",
+                    "help_text": "Select where to save processed articles: 'articles_json' for JSON output, 'duckdb' for database storage, or 'zotero' for direct Zotero import.",
+                    "default": "articles_json"
+                },
+                "to_json_outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Output directory when using 'articles_json' as output backend",
+                    "help_text": "Directory where processed articles will be saved as JSON. Only used when 'to' is set to 'articles_json'.",
+                    "default": "./results"
+                },
+                "zotero_user_id": {
+                    "type": ["string", "null"],
+                    "description": "Zotero user ID or group ID",
+                    "help_text": "Your Zotero user ID (for personal library) or group ID (for group library). Find this in your Zotero settings. Only used when 'to' is set to 'zotero'.",
+                    "default": null
+                },
+                "zotero_collection_id": {
+                    "type": ["string", "null"],
+                    "description": "Zotero collection ID where articles will be saved",
+                    "help_text": "The collection ID within your Zotero library. Find this by right-clicking on a collection in Zotero and selecting 'Copy Collection Identifier'. Only used when 'to' is set to 'zotero'.",
+                    "default": null
+                },
+                "zotero_library_type": {
+                    "type": "string",
+                    "enum": ["user", "group"],
+                    "description": "Type of Zotero library",
+                    "help_text": "Set to 'user' for personal library or 'group' for a shared group library. Only used when 'to' is set to 'zotero'.",
+                    "default": "user"
+                }
+            }
+        },
+        "processing_parameters": {
+            "title": "Processing parameters",
+            "type": "object",
+            "description": "Parameters for controlling pipeline execution and processing behavior",
+            "properties": {
+                "batch_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Number of articles to process in parallel batches",
+                    "help_text": "Controls parallelization of article processing. Higher values process more articles simultaneously but may increase memory usage.",
+                    "default": 10
+                },
+                "debug": {
+                    "type": "boolean",
+                    "description": "Enable debug mode with reduced processing",
+                    "help_text": "When enabled, limits processing to a small subset of journals and articles for testing purposes.",
+                    "default": false
+                }
+            }
+        },
+        "llm_parameters": {
+            "title": "LLM configuration",
+            "type": "object",
+            "description": "Parameters for configuring large language models used in article processing",
+            "properties": {
+                "metadata_extraction_model": {
+                    "type": "string",
+                    "description": "LLM model to use for metadata extraction",
+                    "help_text": "Gemini model identifier for extracting structured metadata from articles.",
+                    "default": "gemini-2.5-flash-lite"
+                },
+                "metadata_extraction_system_prompt": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "System prompt file for metadata extraction",
+                    "help_text": "Path to markdown file containing instructions for the LLM to extract article metadata.",
+                    "default": "${projectDir}/prompts/metadata_extraction.md"
+                },
+                "screening_model": {
+                    "type": "string",
+                    "description": "LLM model to use for screening articles",
+                    "help_text": "Gemini model identifier for determining article relevance based on research interests.",
+                    "default": "gemini-2.5-flash-lite"
+                },
+                "screening_system_prompt": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "System prompt file for article screening",
+                    "help_text": "Path to markdown file containing instructions for the LLM to screen articles for relevance.",
+                    "default": "${projectDir}/prompts/screening.md"
+                },
+                "prioritization_model": {
+                    "type": "string",
+                    "description": "LLM model to use for prioritizing articles",
+                    "help_text": "Gemini model identifier for ranking articles by relevance to research interests.",
+                    "default": "gemini-2.5-flash-lite"
+                },
+                "prioritization_system_prompt": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "System prompt file for article prioritization",
+                    "help_text": "Path to markdown file containing instructions for the LLM to prioritize articles.",
+                    "default": "${projectDir}/prompts/prioritization.md"
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "$ref": "#/$defs/input_parameters"
+        },
+        {
+            "$ref": "#/$defs/output_parameters"
+        },
+        {
+            "$ref": "#/$defs/processing_parameters"
+        },
+        {
+            "$ref": "#/$defs/llm_parameters"
+        }
+    ]
+}

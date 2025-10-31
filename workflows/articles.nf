@@ -13,8 +13,8 @@ workflow PROCESS_ARTICLES {
     main:
         EXTRACT_METADATA(
             articles_json,
-            file(params.metadata_extraction.system_prompt),
-            params.metadata_extraction.model,
+            file(params.metadata_extraction_system_prompt),
+            params.metadata_extraction_model,
             true,
             params.debug
         )
@@ -22,8 +22,8 @@ workflow PROCESS_ARTICLES {
         failed_metadata = batchArticles(EXTRACT_METADATA.out.fail, params.batch_size)
         EXTRACT_METADATA_RETRY(
             failed_metadata,
-            file(params.metadata_extraction.system_prompt),
-            params.metadata_extraction.model,
+            file(params.metadata_extraction_system_prompt),
+            params.metadata_extraction_model,
             false,
             params.debug
         )
@@ -33,18 +33,18 @@ workflow PROCESS_ARTICLES {
         filtered_metadata = filterAndBatch(metadata_articles, params.batch_size, "doi", null)
         SCREEN(
             filtered_metadata.no_match,
-            file(params.screening.system_prompt),
+            file(params.screening_system_prompt),
             file(params.research_interests),
-            params.screening.model,
+            params.screening_model,
             true,
             params.debug
         )
 
         SCREEN_RETRY(
             SCREEN.out.fail,
-            file(params.screening.system_prompt),
+            file(params.screening_system_prompt),
             file(params.research_interests),
-            params.screening.model,
+            params.screening_model,
             false,
             params.debug
         )
@@ -54,18 +54,18 @@ workflow PROCESS_ARTICLES {
         filtered_screened = filterAndBatch(screened_articles, params.batch_size, "screening_decision", true)
         PRIORITIZE(
             filtered_screened.match,
-            file(params.prioritization.system_prompt),
+            file(params.prioritization_system_prompt),
             file(params.research_interests),
-            params.prioritization.model,
+            params.prioritization_model,
             true,
             params.debug
         )
 
         PRIORITIZE_RETRY(
             PRIORITIZE.out.fail,
-            file(params.prioritization.system_prompt),
+            file(params.prioritization_system_prompt),
             file(params.research_interests),
-            params.prioritization.model,
+            params.prioritization_model,
             false,
             params.debug
         )

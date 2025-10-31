@@ -2,52 +2,37 @@
 # MAIN PARAMETERS
 # ===========================
 # These are the main parameters you'll want to customize
-research_interests: "${projectDir}/config/research_interests.md"
-journals_tsv: "${projectDir}/config/journals.tsv"
+research_interests:   "${projectDir}/config/research_interests.md"
+journals_tsv:         "${projectDir}/config/journals.tsv"
 
-zotero:
-    user_id: "1508765"
-    collection_id: "U3T98NSQ"
-    library_type: "user"
+zotero_user_id:       "1508765"
+zotero_collection_id: "U3T98NSQ"
+zotero_library_type:  "user"
 
 # ===========================
 # OTHER PARAMETERS
 # ===========================
-# Uncomment and set these parameters only if you want to override the default settings
-# provided in nextflow.config
-
 # ===========================
 # Backend Configuration
 # ===========================
-# backend:
-#     from: "journals_tsv"   # Options: "articles_json", "duckdb", "journals_tsv"
-#     to:   "articles_json"  # Options: "articles_json", "duckdb", "zotero"
+# from:               "journals_tsv"
+# from_json_input:    "articles.json"
+# from_duckdb_input:  "papers_please.duckdb"
+# to:                 "articles_json"
+# to_json_outdir:     "./results"
 
 # days_back: 8
-
-# backend-specific parameters
-# duckdb:
-#     database_path: "papers_please.duckdb"
-
-# articles_json:
-#     input: "articles.json"
-#     outdir: "./results"
 
 # ===========================
 # LLM Models Configuration
 # ===========================
-# batch_size: 10
-# metadata_extraction:
-#     model: "gemini-2.5-flash-lite"
-#     system_prompt: "${projectDir}/prompts/metadata_extraction.md"
-
-# screening:
-#     model: "gemini-2.5-flash-lite"
-#     system_prompt: "${projectDir}/prompts/screening.md"
-
-# prioritization:
-#     model: "gemini-2.5-flash-lite"
-#     system_prompt: "${projectDir}/prompts/prioritization.md"
+# batch_size:                         10
+# metadata_extraction_model:          "gemini-2.5-flash-lite"
+# metadata_extraction_system_prompt:  "${projectDir}/prompts/metadata_extraction.md"
+# screening_model:                    "gemini-2.5-flash-lite"
+# screening_system_prompt:            "${projectDir}/prompts/screening.md"
+# prioritization_model:               "gemini-2.5-flash-lite"
+# prioritization_system_prompt:       "${projectDir}/prompts/prioritization.md"
 
 # ===========================
 # Others

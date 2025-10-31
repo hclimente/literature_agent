@@ -1,3 +1,5 @@
+include { validateParameters } from 'plugin/nf-schema'
+
 include { FROM_DUCKDB; REMOVE_ARTICLES_IN_DUCKDB; TO_DUCKDB } from './workflows/duckdb'
 include { FROM_JSON; TO_JSON } from './workflows/json'
 include { FROM_TABULAR } from './workflows/tabular'
@@ -9,23 +11,25 @@ include { batchArticles; filterAndBatch } from './modules/json'
 
 workflow {
 
-    if (params.backend.from == "duckdb") {
+    validateParameters()
+
+    if (params.from == "duckdb") {
         FROM_DUCKDB(file(params.journals_tsv))
         fetched_articles = FROM_DUCKDB.out
-    } else if (params.backend.from == "journals_tsv") {
+    } else if (params.from == "journals_tsv") {
         FROM_TABULAR(file(params.journals_tsv))
         fetched_articles = FROM_TABULAR.out
-    } else if (params.backend.from == "articles_json") {
-        FROM_JSON(file(params.from_json.input))
+    } else if (params.from == "articles_json") {
+        FROM_JSON(file(params.from_json_input))
         fetched_articles = FROM_JSON.out
     } else {
-        error "Unsupported backend.from: ${params.backend.from}. Supported backends: 'articles_json', 'duckdb', 'journals_tsv'."
+        error "Unsupported from: ${params.from}. Supported backends: 'articles_json', 'duckdb', 'journals_tsv'."
     }
 
-    if (params.backend.to == "zotero") {
+    if (params.to == "zotero") {
         COLLECTION_CHECK(fetched_articles)
         articles_to_process = COLLECTION_CHECK.out.filtered_articles
-    } else if (params.backend.to == "duckdb") {
+    } else if (params.to == "duckdb") {
         REMOVE_ARTICLES_IN_DUCKDB(fetched_articles)
         articles_to_process = REMOVE_ARTICLES_IN_DUCKDB.out.all_articles
     } else {
@@ -34,14 +38,14 @@ workflow {
 
     PROCESS_ARTICLES(articles_to_process)
 
-    if (params.backend.to == "duckdb") {
+    if (params.to == "duckdb") {
         TO_DUCKDB(PROCESS_ARTICLES.out.all_articles)
-    } else if (params.backend.to == "zotero") {
+    } else if (params.to == "zotero") {
         TO_ZOTERO(batchArticles(PROCESS_ARTICLES.out.prioritized_articles, 10))
-    } else if (params.backend.to == "articles_json") {
+    } else if (params.to == "articles_json") {
         TO_JSON(batchArticles(PROCESS_ARTICLES.out.all_articles, 1000))
     } else {
-        error "Unsupported backend.to: ${params.backend.to}. Supported backends: 'articles_json' 'duckdb', 'zotero'."
+        error "Unsupported to: ${params.to}. Supported backends: 'articles_json' 'duckdb', 'zotero'."
     }
 
 }

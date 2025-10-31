@@ -9,7 +9,7 @@ workflow FROM_DUCKDB {
         journals_tsv
 
     main:
-        db = file(params.duckdb.database_path)
+        db = file(params.from_duckdb_input)
 
         if ( !db.exists() ) {
             println "Articles database not found. Creating a new one at: ${db}."
@@ -59,7 +59,7 @@ workflow TO_DUCKDB {
         articles_json
 
     main:
-        db = file(params.duckdb.database_path)
+        db = file(params.from_duckdb_input)
 
         SAVE(articles_json, db)
         UPDATE_TIMESTAMPS(SAVE.out.collect(), db)
