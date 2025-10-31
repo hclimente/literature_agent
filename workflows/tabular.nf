@@ -8,8 +8,8 @@ workflow FROM_TABULAR {
         journals_tsv
 
     main:
-        global_cutoff_date = new Date(System.currentTimeMillis() - 15 * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
-        println "Global cutoff date set to: ${global_cutoff_date}"
+        global_cutoff_date = new Date(System.currentTimeMillis() - params.days_back * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
+        println "Global cutoff date set to ${params.days_back} days back (${global_cutoff_date})."
 
         journals = channel.fromPath(journals_tsv)
             .splitCsv(header: true, sep: '\t')

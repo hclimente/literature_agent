@@ -14,8 +14,8 @@ workflow FROM_DUCKDB {
         if ( !db.exists() ) {
             println "Articles database not found. Creating a new one at: ${db}."
 
-            global_cutoff_date = new Date(System.currentTimeMillis() - 15 * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
-            println "Global cutoff date set to: ${global_cutoff_date}"
+            global_cutoff_date = new Date(System.currentTimeMillis() - params.days_back * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
+            println "Global cutoff date set to ${params.days_back} days back (${global_cutoff_date})."
 
             db_filename = db.name
             db_parent_dir = db.parent
