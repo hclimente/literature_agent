@@ -18,6 +18,38 @@ from common.parsers import (
 from common.utils import get_env_variable
 
 
+def add_creators(authors: list | None) -> list:
+    """
+    Convert a list of Author or InstitutionalAuthor objects into Zotero creator format.
+    Args:
+        authors (list | None): List of Author or InstitutionalAuthor objects.
+        Returns:
+        list: List of creators in Zotero format.
+    """
+
+    if not authors:
+        return []
+
+    creators = []
+    for author in authors:
+        if isinstance(author, InstitutionalAuthor):
+            creators.append(
+                {
+                    "creatorType": "author",
+                    "name": author.name,
+                }
+            )
+        elif isinstance(author, Author):
+            creators.append(
+                {
+                    "creatorType": "author",
+                    "firstName": author.first_name,
+                    "lastName": author.last_name,
+                }
+            )
+    return creators
+
+
 def create_zotero_article(
     item: Article, zotero_collection_id, zot: zotero.Zotero
 ) -> zotero.Item:
@@ -62,23 +94,7 @@ def create_zotero_article(
     # zotero_article['rights'] = metadata["rights"]
 
     # Add creators/authors if available
-    zotero_article["creators"] = []
-    for author in item.authors:
-        if isinstance(author, InstitutionalAuthor):
-            zotero_article["creators"].append(
-                {
-                    "creatorType": "author",
-                    "name": author.name,
-                }
-            )
-        elif isinstance(author, Author):
-            zotero_article["creators"].append(
-                {
-                    "creatorType": "author",
-                    "firstName": author.first_name,
-                    "lastName": author.last_name,
-                }
-            )
+    zotero_article["creators"] = add_creators(item.authors)
 
     # Add tags based on screening/priority
     zotero_article["tags"] = []
@@ -176,6 +192,12 @@ def insert_article(
     Returns:
         None
     """
+    logging.info("-" * 20)
+    logging.info(f"articles_json        : {articles_json}")
+    logging.info(f"zotero_user_id       : {zotero_user_id}")
+    logging.info(f"zotero_library_type  : {zotero_library_type}")
+    logging.info(f"zotero_collection_id : {zotero_collection_id}")
+    logging.info("-" * 20)
 
     zot = zotero.Zotero(
         zotero_user_id, zotero_library_type, get_env_variable("ZOTERO_API_KEY")

@@ -30,16 +30,26 @@ workflow FROM_DUCKDB {
 
         FETCH_ARTICLES(journals, 50)
 
-        fetched_batches = batchArticles(FETCH_ARTICLES.out, 1000)
+    emit:
+        FETCH_ARTICLES.out
+
+}
+
+workflow REMOVE_ARTICLES_IN_DUCKDB {
+
+    take:
+        articles_json
+
+    main:
         REMOVE_PROCESSED(
-            fetched_batches,
+            batchArticles(articles_json, 1000),
             db
         )
 
-        articles_to_process = batchArticles(REMOVE_PROCESSED.out, params.batch_size)
+        filtered_articles = batchArticles(REMOVE_PROCESSED.out, params.batch_size)
 
     emit:
-        articles_to_process
+        filtered_articles
 
 }
 
