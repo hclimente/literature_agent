@@ -39,6 +39,11 @@ def remove_unprocessed_articles(
 
     urls = [a["url"] for a in articles]
 
+    # Handle empty articles list
+    if not urls:
+        logging.info("No articles to process.")
+        return
+
     with duckdb.connect(db_path) as con:
         con.execute("""
             CREATE TEMPORARY TABLE tmp_articles (

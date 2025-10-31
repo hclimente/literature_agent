@@ -79,6 +79,7 @@ def split_by_qc(
         k = getattr(item, merge_key)
 
         if k in response_pass:
+            error_occurred = False
             for new_field in response_pass[k].model_fields:
                 try:
                     setattr(item, new_field, getattr(response_pass[k], new_field))
@@ -88,16 +89,19 @@ def split_by_qc(
                     )
                     handle_error(item, error_msg, allow_errors)
                     articles_fail.append(item)
-                    continue
+                    error_occurred = True
+                    break
                 except ValidationError:
                     error_msg = (
                         f"Validation error for field '{new_field}' in QC pass data."
                     )
                     handle_error(item, error_msg, allow_errors)
                     articles_fail.append(item)
-                    continue
+                    error_occurred = True
+                    break
 
-            articles_pass.append(item)
+            if not error_occurred:
+                articles_pass.append(item)
         else:
             error_msg = (
                 f"Key {merge_key} '{k}' not found among passing {response_pass.keys()}."
@@ -217,32 +221,3 @@ def save_validated_responses(
             f.write(pprint(articles_fail))
 
     logging.info("✅ Done validating responses.")
-
-
-def get_common_variations(expected_values: list):
-    """
-    Generate common variations of expected values (case, quotes, punctuation).
-
-    Args:
-        expected_values (list): List of expected values.
-
-    Returns:
-        dict: Mapping of variations to normalized values.
-    """
-    d = {}
-
-    for v in expected_values:
-        d[v] = v
-        d[v.lower()] = v
-        d[v.upper()] = v
-        d[v.capitalize()] = v
-        d[v.title()] = v
-
-    update = {}
-    for k, v in d.items():
-        update[f"'{k}'"] = v
-        update[f'"{k}"'] = v
-        update[f"{k}."] = v
-
-    d.update(update)
-    return d

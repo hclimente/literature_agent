@@ -66,7 +66,7 @@ def validate_articles_json(
         raise ValueError(f"Unknown stage: {stage}")
 
     for article in articles:
-        for f in article.model_fields:
+        for f in type(article).model_fields:
             if f not in required_fields:
                 setattr(article, f, None)
 

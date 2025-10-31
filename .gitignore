@@ -6,6 +6,7 @@ results/
 work/
 
 # python files
+.pytest_cache/
 .ruff_cache/
 .venv/
 __pycache__
