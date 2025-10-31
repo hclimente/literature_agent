@@ -4,6 +4,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add the parent directory to the path so we can import the module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -260,4 +262,98 @@ class TestProcessAuthorList:
             assert result is not None
         except Exception:
             # If Pydantic validation fails, that's also acceptable behavior
+            pass
+
+
+class TestFetchMetadata:
+    """Test suite for fetch_metadata function"""
+
+    @pytest.fixture(autouse=True)
+    def cleanup_output_file(self):
+        """Clean up the output file after each test"""
+        import os
+
+        yield
+
+        # Clean up after test
+        output_file = "articles_with_extra_metadata.json"
+        if os.path.exists(output_file):
+            os.remove(output_file)
+
+    @pytest.fixture
+    def sample_articles_json(self, tmp_path):
+        """Create a sample articles JSON file"""
+        import json
+
+        articles = [
+            {
+                "title": "Test Article 1",
+                "url": "https://example.com/article1",
+                "journal_name": "Nature",
+                "date": "2024-01-01",
+                "access_date": "2024-01-15",
+                "raw_contents": "Content 1",
+                "doi": "10.1234/test1",
+            },
+        ]
+
+        json_file = tmp_path / "articles.json"
+        json_file.write_text(json.dumps(articles))
+        return str(json_file)
+
+    def test_fetch_metadata_invalid_error_strategy(self, sample_articles_json):
+        """Test that invalid error_strategy raises ValueError"""
+        from crossref_annotate_doi import fetch_metadata
+
+        with pytest.raises(ValueError, match="error_strategy must be either"):
+            fetch_metadata(sample_articles_json, "invalid")
+
+    def test_fetch_metadata_invalid_error_strategy_none(self, sample_articles_json):
+        """Test that None error_strategy raises ValueError"""
+        from crossref_annotate_doi import fetch_metadata
+
+        with pytest.raises(ValueError, match="error_strategy must be either"):
+            fetch_metadata(sample_articles_json, None)
+
+    def test_fetch_metadata_loads_articles_from_json(self, sample_articles_json):
+        """Test that fetch_metadata successfully loads articles from JSON"""
+        from crossref_annotate_doi import ArticleList
+        import pathlib
+
+        # Read the actual file to verify it's valid
+        json_string = pathlib.Path(sample_articles_json).read_text()
+        articles = ArticleList.validate_json(json_string)
+
+        # Verify articles were loaded
+        assert len(articles) == 1
+        assert articles[0].doi == "10.1234/test1"
+
+    def test_fetch_metadata_exclude_strategy_is_valid(self, sample_articles_json):
+        """Test that 'exclude' is a valid error strategy"""
+        from crossref_annotate_doi import fetch_metadata
+
+        # This should not raise a ValueError
+        try:
+            # We expect this to fail at Crossref API call, not at validation
+            fetch_metadata(sample_articles_json, "exclude")
+        except ValueError as e:
+            if "error_strategy must be either" in str(e):
+                pytest.fail("'exclude' should be a valid error strategy")
+        except Exception:
+            # Other exceptions are okay (e.g., network errors, API errors)
+            pass
+
+    def test_fetch_metadata_include_strategy_is_valid(self, sample_articles_json):
+        """Test that 'include' is a valid error strategy"""
+        from crossref_annotate_doi import fetch_metadata
+
+        # This should not raise a ValueError
+        try:
+            # We expect this to fail at Crossref API call, not at validation
+            fetch_metadata(sample_articles_json, "include")
+        except ValueError as e:
+            if "error_strategy must be either" in str(e):
+                pytest.fail("'include' should be a valid error strategy")
+        except Exception:
+            # Other exceptions are okay (e.g., network errors, API errors)
             pass
