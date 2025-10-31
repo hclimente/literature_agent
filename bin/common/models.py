@@ -9,7 +9,7 @@ from pydantic import (
     TypeAdapter,
 )
 
-from .validation import get_common_variations
+from .utils import get_common_variations
 
 
 class Author(BaseModel):

@@ -2,6 +2,35 @@ import logging
 import os
 
 
+def get_common_variations(expected_values: list):
+    """
+    Generate common variations of expected values (case, quotes, punctuation).
+
+    Args:
+        expected_values (list): List of expected values.
+
+    Returns:
+        dict: Mapping of variations to normalized values.
+    """
+    d = {}
+
+    for v in expected_values:
+        d[v] = v
+        d[v.lower()] = v
+        d[v.upper()] = v
+        d[v.capitalize()] = v
+        d[v.title()] = v
+
+    update = {}
+    for k, v in d.items():
+        update[f"'{k}'"] = v
+        update[f'"{k}"'] = v
+        update[f"{k}."] = v
+
+    d.update(update)
+    return d
+
+
 def get_env_variable(var_name: str, raise_error: bool = False) -> str:
     """
     Retrieve the value of an environment variable.
