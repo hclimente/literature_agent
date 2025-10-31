@@ -64,6 +64,14 @@ The workflow will fetch the latest articles from the specified journals, screen 
 ]
 ```
 
+### Documentation
+
+Use `--help` to learn more about the workflow and the configuration options:
+
+```bash
+nextflow run hclimente/nf-papers-please --help
+```
+
 ## Automated weekly runs on GitHub Actions
 
 This workflow can be set up to run automatically on a weekly basis using GitHub Actions. The workflow will check for new articles based on your specified research interests and journals, process them, and save the results to your Zotero library.

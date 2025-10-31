@@ -62,8 +62,8 @@ jobs:
 
         nextflow run main.nf \
           -params-file config/config.yaml \
-          --backend.from journals_tsv \
-          --backend.to zotero \
+          --from journals_tsv \
+          --to zotero \
           -ansi-log false \
           $DEBUG_FLAG
 

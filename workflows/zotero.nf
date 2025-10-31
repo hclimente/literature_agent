@@ -10,9 +10,9 @@ workflow COLLECTION_CHECK {
     main:
         REMOVE_PROCESSED(
             batchArticles(articles_json, 1000),
-            params.zotero.user_id,
-            params.zotero.collection_id,
-            params.zotero.library_type
+            params.zotero_user_id,
+            params.zotero_collection_id,
+            params.zotero_library_type
         )
 
         filtered_articles = batchArticles(REMOVE_PROCESSED.out, params.batch_size)
@@ -31,9 +31,9 @@ workflow TO_ZOTERO {
         EXTRACT_MORE_METADATA(articles_json)
         SAVE(
             EXTRACT_MORE_METADATA.out,
-            params.zotero.user_id,
-            params.zotero.collection_id,
-            params.zotero.library_type
+            params.zotero_user_id,
+            params.zotero_collection_id,
+            params.zotero_library_type
         )
 
     emit:
