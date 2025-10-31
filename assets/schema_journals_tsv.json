@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/hclimente/papers_please/main/assets/schema_journals_tsv.json",
+  "title": "Journals TSV Schema",
+  "description": "Schema for validating the structure of the journals TSV input file",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "Journal": {
+        "type": "string",
+        "description": "Name of the journal",
+        "minLength": 1
+      },
+      "RSS URL": {
+        "type": "string",
+        "description": "RSS feed URL for the journal",
+        "format": "uri",
+        "pattern": "^https?://"
+      }
+    },
+    "required": ["Journal", "RSS URL"]
+  },
+  "minItems": 1
+}
