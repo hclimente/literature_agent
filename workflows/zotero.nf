@@ -5,7 +5,10 @@ include { batchArticles; filterAndBatch } from '../modules/json'
 workflow COLLECTION_CHECK {
 
     take:
-        articles_json
+        articles_json: Path
+        zotero_user_id: String
+        zotero_collection_id: String
+        zotero_library_type: String
 
     main:
         REMOVE_PROCESSED(
@@ -25,7 +28,10 @@ workflow COLLECTION_CHECK {
 workflow TO_ZOTERO {
 
     take:
-        articles_json
+        articles_json: Path
+        zotero_user_id: String
+        zotero_collection_id: String
+        zotero_library_type: String
 
     main:
         EXTRACT_MORE_METADATA(articles_json)

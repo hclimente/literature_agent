@@ -3,7 +3,7 @@ include { batchArticles; filterAndBatch; COLLECT_OUTPUTS; VALIDATE } from '../mo
 workflow FROM_JSON {
 
     take:
-        articles_json
+        articles_json: Path
 
     main:
         VALIDATE(articles_json, "import", "validated_articles")
@@ -15,7 +15,7 @@ workflow FROM_JSON {
 workflow TO_JSON {
 
     take:
-        articles_json
+        articles_json: Path
 
     main:
         VALIDATE(articles_json, "export", "prioritized_articles")

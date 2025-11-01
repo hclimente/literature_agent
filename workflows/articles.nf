@@ -8,66 +8,66 @@ include { batchArticles; filterAndBatch } from '../modules/json'
 workflow PROCESS_ARTICLES {
 
     take:
-        articles_json
+        articles_json: Path
+        batch_size: Integer
+        metadata_params: Tuple<Path, String>
+        screening_params: Tuple<Path, String>
+        prioritization_params: Tuple<Path, String>
+        research_interests: Path
+        debug_mode: Boolean
 
     main:
         EXTRACT_METADATA(
             articles_json,
-            file(params.metadata_extraction_system_prompt),
-            params.metadata_extraction_model,
+            metadata_params,
             true,
-            params.debug
+            debug_mode
         )
 
-        failed_metadata = batchArticles(EXTRACT_METADATA.out.fail, params.batch_size)
+        failed_metadata = batchArticles(EXTRACT_METADATA.out.fail, batch_size)
         EXTRACT_METADATA_RETRY(
             failed_metadata,
-            file(params.metadata_extraction_system_prompt),
-            params.metadata_extraction_model,
+            metadata_params,
             false,
-            params.debug
+            debug_mode
         )
 
         metadata_articles = EXTRACT_METADATA.out.pass
             .concat(EXTRACT_METADATA_RETRY.out.pass)
-        filtered_metadata = filterAndBatch(metadata_articles, params.batch_size, "doi", null)
+        filtered_metadata = filterAndBatch(metadata_articles, batch_size, "doi", null)
         SCREEN(
             filtered_metadata.no_match,
-            file(params.screening_system_prompt),
-            file(params.research_interests),
-            params.screening_model,
+            screening_params,
+            research_interests,
             true,
-            params.debug
+            debug_mode
         )
 
         SCREEN_RETRY(
-            SCREEN.out.fail,
-            file(params.screening_system_prompt),
-            file(params.research_interests),
-            params.screening_model,
+            SCREEN.out.fail.filter { it != null },
+            screening_params,
+            research_interests,
             false,
-            params.debug
+            debug_mode
         )
 
         screened_articles = SCREEN.out.pass
             .concat(SCREEN_RETRY.out.pass)
-        filtered_screened = filterAndBatch(screened_articles, params.batch_size, "screening_decision", true)
+        filtered_screened = filterAndBatch(screened_articles, batch_size, "screening_decision", true)
         PRIORITIZE(
             filtered_screened.match,
-            file(params.prioritization_system_prompt),
-            file(params.research_interests),
-            params.prioritization_model,
+            prioritization_params,
+            research_interests,
             true,
-            params.debug
+            debug_mode
         )
 
         PRIORITIZE_RETRY(
-            PRIORITIZE.out.fail,
-            file(params.prioritization_system_prompt),
-            file(params.research_interests),
-            params.prioritization_model,
+            PRIORITIZE.out.fail.filter { it != null },
+            prioritization_params,
+            research_interests,
             false,
-            params.debug
+            debug_mode
         )
 
         prioritized_articles = PRIORITIZE.out.pass

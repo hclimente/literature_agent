@@ -16,6 +16,7 @@ def batchFlattened(channel, batch_size) {
 
 def batchArticles(channel, batch_size) {
     def result = channel
+        .filter { it != null }
         .splitJson()
         .flatten()
         .buffer(size: batch_size, remainder: true)

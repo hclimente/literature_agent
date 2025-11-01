@@ -1,3 +1,5 @@
+nextflow.preview.types = true
+
 process EXTRACT_METADATA {
 
     container 'community.wave.seqera.io/library/pip_google-genai:2e5c0f1812c5cbda'
@@ -7,15 +9,14 @@ process EXTRACT_METADATA {
     secret 'USER_EMAIL'
 
     input:
-    path ARTICLES_JSON
-    path SYSTEM_PROMPT
-    val MODEL
-    val ALLOW_QC_ERRORS
-    val DEBUG
+    ARTICLES_JSON: Path
+    (SYSTEM_PROMPT, MODEL): Tuple<Path, String>
+    ALLOW_QC_ERRORS: Boolean
+    DEBUG: Boolean
 
     output:
-    path "metadata_pass.json", emit: pass, optional: true
-    path "metadata_fail.json", emit: fail, optional: true
+    pass = file("metadata_pass.json", optional: true)
+    fail = file("metadata_fail.json", optional: true)
 
     script:
     """
@@ -39,16 +40,15 @@ process SCREEN {
     secret 'USER_EMAIL'
 
     input:
-    path ARTICLES_JSON
-    path SYSTEM_PROMPT
-    path RESEARCH_INTERESTS_PATH
-    val MODEL
-    val ALLOW_QC_ERRORS
-    val DEBUG
+    ARTICLES_JSON: Path
+    (SYSTEM_PROMPT, MODEL): Tuple<Path, String>
+    RESEARCH_INTERESTS_PATH: Path
+    ALLOW_QC_ERRORS: Boolean
+    DEBUG: Boolean
 
     output:
-    path "screening_pass.json", emit: pass, optional: true
-    path "screening_fail.json", emit: fail, optional: true
+    pass = file("screening_pass.json", optional: true)
+    fail = file("screening_fail.json", optional: true)
 
     script:
     """
@@ -72,16 +72,15 @@ process PRIORITIZE {
     secret 'USER_EMAIL'
 
     input:
-    path ARTICLES_JSON
-    path SYSTEM_PROMPT
-    path RESEARCH_INTERESTS_PATH
-    val MODEL
-    val ALLOW_QC_ERRORS
-    val DEBUG
+    ARTICLES_JSON: Path
+    (SYSTEM_PROMPT, MODEL): Tuple<Path, String>
+    RESEARCH_INTERESTS_PATH: Path
+    ALLOW_QC_ERRORS: Boolean
+    DEBUG: Boolean
 
     output:
-    path "priority_pass.json", emit: pass, optional: true
-    path "priority_fail.json", emit: fail, optional: true
+    pass = file("priority_pass.json", optional: true)
+    fail = file("priority_fail.json", optional: true)
 
     script:
     """

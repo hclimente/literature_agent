@@ -6,7 +6,8 @@ include { batchArticles; filterAndBatch } from '../modules/json'
 workflow FROM_DUCKDB {
 
     take:
-        journals_tsv
+        journals_tsv: Path
+        days_back: Integer
 
     main:
         db = file(params.from_duckdb_input)
@@ -14,12 +15,12 @@ workflow FROM_DUCKDB {
         if ( !db.exists() ) {
             println "Articles database not found. Creating a new one at: ${db}."
 
-            global_cutoff_date = new Date(System.currentTimeMillis() - params.days_back * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
-            println "Global cutoff date set to ${params.days_back} days back (${global_cutoff_date})."
+            global_cutoff_date = new Date(System.currentTimeMillis() - days_back * 24 * 60 * 60 * 1000).format("yyyy-MM-dd")
+            println "Global cutoff date set to ${days_back} days back (${global_cutoff_date})."
 
             db_filename = db.name
             db_parent_dir = db.parent
-            CREATE_ARTICLES_DB(file(params.journals_tsv), db_filename, db_parent_dir, global_cutoff_date)
+            CREATE_ARTICLES_DB(journals_tsv, db_filename, db_parent_dir, global_cutoff_date)
             db = CREATE_ARTICLES_DB.out
         }
 
@@ -38,7 +39,8 @@ workflow FROM_DUCKDB {
 workflow REMOVE_ARTICLES_IN_DUCKDB {
 
     take:
-        articles_json
+        articles_json: Path
+        db: Path
 
     main:
         REMOVE_PROCESSED(
@@ -56,7 +58,7 @@ workflow REMOVE_ARTICLES_IN_DUCKDB {
 workflow TO_DUCKDB {
 
     take:
-        articles_json
+        articles_json: Path
 
     main:
         db = file(params.from_duckdb_input)

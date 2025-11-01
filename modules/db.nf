@@ -1,7 +1,7 @@
 process CREATE_ARTICLES_DB {
 
     container 'community.wave.seqera.io/library/duckdb:1.4.1--3daff581f117ee85'
-    publishDir "${DB_PARENT_DIR}", mode: 'link'
+    publishDir ".", mode: 'link'
 
     input:
     path JOURNALS_TSV
